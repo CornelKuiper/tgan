@@ -1,4 +1,5 @@
 from itertools import accumulate
+import time
 
 class Trump:
     """
@@ -53,11 +54,15 @@ class Trump:
 
         tweets = []
         with open('Donald-Tweets.csv', 'r') as dataset:
-            def process(txt): return txt.rstrip('\n').split(',')
-            labels = process(dataset.readline())
+            def process(txt):
+                properties = txt.rstrip('\n').split(',', maxsplit=2)                            #split the first 2 properties
+                txt = properties.pop()
+                properties += txt.rstrip('\n').rsplit(',', maxsplit=7)                          #split the last 7 properties
+                return properties
 
+            labels = process(dataset.readline().rstrip(",,\n"))
             for line in dataset.read().split(",,\n"):
                 tweet_contents = process(line)
-                tweet = dict(zip(labels, tweet_contents))
+                tweet = dict(zip(labels, tweet_contents))                                       #tweet becomes a dict for the labels
                 tweets.append(tweet)
         return tweets[:-1]
