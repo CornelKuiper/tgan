@@ -10,20 +10,22 @@ class Trump:
     https://www.kaggle.com/kingburrito666/better-donald-trump-tweets?email-verification=true&verification-id=1416547
     """
 
+    _dataset = None
+
     def train():
         #return training set
-        data = Trump.__load_tweets__()
-        return Trump.__partition__(data, 'train')
+        data = Trump._get_data()
+        return Trump._partition(data, 'train')
 
     def val():
         #return validation set
-        data = Trump.__load_tweets__()
-        return Trump.__partition__(data, 'val')
+        data = Trump._get_data()
+        return Trump._partition(data, 'val')
 
     def test():
         #return test set
-        data = Trump.__load_tweets__()
-        return Trump.__partition__(data, 'test')
+        data = Trump._get_data()
+        return Trump._partition(data, 'test')
 
     def column(tweets, index="Tweet_Text"):
         #Return a vertical slice of the data. E.g. a list of only the text in all tweets, or a list of all tweet types.
@@ -34,7 +36,7 @@ class Trump:
                 print("The indexkey was not found, or I could not process in tweet:", tweet)
         return content_col
 
-    def __partition__(data, part_name='train'):
+    def _partition(data, part_name='train'):
         #This function returns a consistent part of the dataset
 
         def cumsum(lst):                                                                        #return a lists' cumulative list
@@ -49,7 +51,7 @@ class Trump:
 
         return data[parts[part_index-1][1] : parts[part_index][1]]
 
-    def __load_tweets__():
+    def _load_tweets():
         #returns a list of tweets (dictionaries). See help(Trump) for more information on tweets
 
         tweets = []
@@ -66,3 +68,9 @@ class Trump:
                 tweet = dict(zip(labels, tweet_contents))                                       #tweet becomes a dict for the labels
                 tweets.append(tweet)
         return tweets[:-1]
+
+    def _get_data():
+        #getter for the full dataset
+        if Trump._dataset is None:
+            Trump._dataset = Trump._load_tweets()
+        return Trump._dataset
