@@ -1,5 +1,5 @@
 from itertools import accumulate
-import time
+import gensim
 
 class Trump:
     """
@@ -55,7 +55,7 @@ class Trump:
         #returns a list of tweets (dictionaries). See help(Trump) for more information on tweets
 
         tweets = []
-        with open('Donald-Tweets.csv', 'r') as dataset:
+        with open('./data/Donald-Tweets.csv', 'r') as dataset:
             def process(txt):
                 properties = txt.rstrip('\n').split(',', maxsplit=2)                            #split the first 2 properties
                 txt = properties.pop()
@@ -74,3 +74,15 @@ class Trump:
         if Trump._dataset is None:
             Trump._dataset = Trump._load_tweets()
         return Trump._dataset
+
+class Processing:
+    w2v_model = None
+
+    def _load_embeddings():
+        print("please wait while I create a giant embeddingsmatrix..")
+        w2v_model = gensim.models.KeyedVectors.load_word2vec_format('./data/GoogleNews-vectors-negative300.bin', binary=True)
+        print("I've loaded the word embeddings :)")
+
+        vocab = w2v_model.vocab.keys()
+        for wrd in vocab:
+            print(wrd, w2v_model.wv[wrd])
