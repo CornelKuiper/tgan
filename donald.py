@@ -116,7 +116,6 @@ class Processing:
 
     def embeddings():
         #getter for the full dataset
-        print("init embed")
         if Processing._w2v_model is None:
             Processing._load_embeddings()
         return Processing._w2v_model
