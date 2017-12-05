@@ -77,23 +77,27 @@ class Trump:
 
 class Processing:
     _w2v_model = None
+    _keys = None
     # get_keras_embedding(train_embeddings=False) #useful for model?
     # Omer Levy and Yoav Goldberg. Linguistic Regularities in Sparse and Explicit Word Representations, 2014.
     #^ propose a cosine measure that amplifies short distance and reduces large. Used for analogy problems.
 
-    def get(word): #(untested)
-        # print("get")
+    def get(word):
         model = Processing.embeddings()
-        # print("finished get: ", Processing._w2v_model)
         return model.wv[word]
 
+    def keys():
+        if Processing._keys is None:
+            Processing._keys = Processing.embeddings().vocab.keys()
+        return Processing._keys
+
     def nearest(word, ntop=10):
-        #returns the ntop nearest neighbours to a word, according to its embeddings (untested)
+        #returns the ntop nearest neighbours to a word, according to its embeddings
         model = Processing.embeddings()
         return model.wv.similar_by_word(word , topn = ntop)
 
     def similarity(w1, w2):
-        #returns the cosine similarity between the given words (untested)
+        #returns the cosine similarity between the given words
         model = Processing.embeddings()
         return model.wv.similarity(w1, w2)
 
@@ -113,10 +117,8 @@ class Processing:
     def embeddings():
         #getter for the full dataset
         print("init embed")
-        # print(Processing._w2v_model)
         if Processing._w2v_model is None:
             Processing._load_embeddings()
-        # print(Processing._w2v_model)
         return Processing._w2v_model
 
     def _load_embeddings():
