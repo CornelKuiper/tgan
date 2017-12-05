@@ -82,7 +82,9 @@ class Processing:
     #^ propose a cosine measure that amplifies short distance and reduces large. Used for analogy problems.
 
     def get(word): #(untested)
+        # print("get")
         model = Processing.embeddings()
+        # print("finished get: ", Processing._w2v_model)
         return model.wv[word]
 
     def nearest(word, ntop=10):
@@ -110,8 +112,11 @@ class Processing:
 
     def embeddings():
         #getter for the full dataset
+        print("init embed")
+        # print(Processing._w2v_model)
         if Processing._w2v_model is None:
-            Processing._w2v_model = Processing._load_embeddings()
+            Processing._load_embeddings()
+        # print(Processing._w2v_model)
         return Processing._w2v_model
 
     def _load_embeddings():
