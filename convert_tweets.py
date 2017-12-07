@@ -2,6 +2,7 @@ from donald import Trump
 from embeddings import Processing
 from random import randint
 import numpy as np
+import nltk
 
 training_data = Trump.train()
 training_tweets = Trump.column(training_data, 'Tweet_Text')
@@ -13,12 +14,6 @@ def random_embedding():
     return Processing.get(Processing.embeddings().index2word[idx])
 
 def save_tweets(tweets_embeddings):
-    for tweet in tweets_embeddings:
-        for embd in tweet:
-            try:
-                embd.shape
-            except:
-                print(embd)
     #save the dataset in a file that stores 7000 matrices,
     #which are concatenated word embeddings for its tweet contents
     #an empty array is added to prevent numpy from trying to infer fixed shape and crashing
@@ -49,40 +44,33 @@ def load_tweets():
 #by popping the tweet stack we reverse the data in the process.
 #new data format is a list of tweets, which are lists of embedding vectors
 twts_embeds = []
-
-nHits = 0
-nMiss = 0
+nHits = nMiss = 0
 for tweet in training_tweets:
-    tweet_embedding = []
-    for word in tweet.split(' '):
-        embedding = None
-        try:
-            embedding = Processing.get(word)
-            nHits += 1
-        except:
-            #if no word is found, insert a random embedding?
-            embedding = random_embedding()
-            nMiss += 1
+  tweet_embedding = []
+  for word in nltk.word_tokenize(tweet):
+    #set embeddings for each word
+    #if no word is found, insert a random embedding.
 
-        tweet_embedding.append(embedding)
-        #print("gotten word ", word)
-    twts_embeds.append(tweet_embedding)
+    embedding = None
+    try:
+      embedding = Processing.get(word)
+      nHits += 1
+    except:
+      embedding = random_embedding()
+      nMiss += 1
+    tweet_embedding.append(embedding)
 
-#print("tweets0", twts_embeds[0][:10])
-#print("tweets1", twts_embeds[1][:10])
-#print("tweets00", twts_embeds[0][0][:10])
-#print("tweets11", twts_embeds[1][0][:10])
+  twts_embeds.append(tweet_embedding)
+
+print("# embeddings: ")
 print("twts_embeds.len", len(twts_embeds))
 
 save_tweets(twts_embeds)
 print("saved tweets")
+print("saved.shape", len(saved))
 
-foo = load_tweets()
+loaded = load_tweets()
 print("loaded tweets: ")
-#print("loadedtweets0", foo[0][:10])
-#print("loadedtweets1", foo[1][:10])
-#print("loadedtweets00", foo[0][0][:10])
-#print("loadedtweets11", foo[1][0][:10])
-print("foo.shape", len(foo))
+print("loaded.shape", len(loaded))
 
 print(nHits, nMiss)
