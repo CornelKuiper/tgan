@@ -55,7 +55,7 @@ class Trump:
         #returns a list of tweets (dictionaries). See help(Trump) for more information on tweets
 
         tweets = []
-        with open('./data/Donald-Tweets.csv', 'r') as dataset:
+        with open('./data/Donald-Tweets.csv', 'r', encoding='utf8') as dataset:
             def process(txt):
                 properties = txt.rstrip('\n').split(',', maxsplit=2)                            #split the first 2 properties
                 txt = properties.pop()
