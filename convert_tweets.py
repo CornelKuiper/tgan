@@ -1,4 +1,5 @@
-from donald import Trump, Processing
+from donald import Trump
+from embeddings import Processing
 from random import randint
 import numpy as np
 
@@ -34,9 +35,9 @@ def load_tweets():
     loaded = np.load('trump_embeddings.npz')
     for tweet in loaded.files:
         #remove zero vector
-        
+
         #print(loaded[tweet])
-        
+
         content = [loaded[tweet]]
         if len(loaded[tweet].shape) > 1:
             content = np.split(loaded[tweet])
