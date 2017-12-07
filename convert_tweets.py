@@ -15,13 +15,14 @@ def save_tweets(tweets_embeddings):
     for tweet in tweets_embeddings:
         for embd in tweet:
             try:
-                print(embd.shape)
+                embd.shape
             except:
                 print(embd)
     #save the dataset in a file that stores 7000 matrices,
     #which are concatenated word embeddings for its tweet contents
+    #an empty array is added to prevent numpy from trying to infer fixed shape and crashing
     stitched_tweets = []
-    stitched_tweets.append([np.stack(tweet, axis=-1) for tweet in tweets_embeddings])
+    stitched_tweets.append([np.zeros(2)] + [np.stack(tweet, axis=-1) for tweet in tweets_embeddings])
 
     np.savez('trump_embeddings', *stitched_tweets)
 
@@ -32,7 +33,13 @@ def load_tweets():
 
     loaded = np.load('trump_embeddings.npz')
     for tweet in loaded.files:
-        content = np.split(tweet)
+        #remove zero vector
+        
+        #print(loaded[tweet])
+        
+        content = [loaded[tweet]]
+        if len(loaded[tweet].shape) > 1:
+            content = np.split(loaded[tweet])
         dataset.append(content)
     return dataset
 
@@ -57,13 +64,14 @@ for tweet in training_tweets:
             nMiss += 1
 
         tweet_embedding.append(embedding)
-        print("gotten word ", word)
+        #print("gotten word ", word)
     twts_embeds.append(tweet_embedding)
 
 #print("tweets0", twts_embeds[0][:10])
 #print("tweets1", twts_embeds[1][:10])
-print("tweets00", twts_embeds[0][0][:10])
-print("tweets11", twts_embeds[1][1][:10])
+#print("tweets00", twts_embeds[0][0][:10])
+#print("tweets11", twts_embeds[1][0][:10])
+print("twts_embeds.len", len(twts_embeds))
 
 save_tweets(twts_embeds)
 print("saved tweets")
@@ -72,7 +80,8 @@ foo = load_tweets()
 print("loaded tweets: ")
 #print("loadedtweets0", foo[0][:10])
 #print("loadedtweets1", foo[1][:10])
-print("loadedtweets00", foo[0][0][:10])
-print("loadedtweets11", foo[1][1][:10])
+#print("loadedtweets00", foo[0][0][:10])
+#print("loadedtweets11", foo[1][0][:10])
+print("foo.shape", len(foo))
 
 print(nHits, nMiss)
