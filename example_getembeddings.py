@@ -1,14 +1,68 @@
 from donald import Trump
-import phrase2embedded
+import phrase2embedded as p2e
 
-embds = phrase2embedded.load_embeddings(name="./data/trump_embeddings.npz")
-
-print(embds[0])
-print(embds[1])
-
-#embed the validation set
+#get the validation set
 validation = Trump.val()
 validation_phrases = Trump.column(validation)
 
-validation_embedded = phrase2embedded.convertphrases(validation_phrases)
-phrase2embedded.save_embeddings(validation_embedded, "./data/trump_validation_embedded")
+#define validation dataset embeddings
+validation_embedded = p2e.convertphrases(validation_phrases)
+
+#save validation dataset embeddings
+p2e.save_embeddings(validation_embedded, "./data/embeddings_trumptweets_val.npz")
+
+#load validation dataset embeddings
+embds = p2e.load_embeddings(name="./data/embeddings_trumptweets_val.npz")
+
+#sample some embeddings
+print(embds[0].shape)
+print(embds[67].shape)
+print(embds[500].shape)
+
+#free memory
+del embds, validation, validation_phrases, validation_embedded
+###################################################################################
+
+#get the test set
+test = Trump.test()
+test_phrases = Trump.column(test)
+
+#define test dataset embeddings
+test_embedded = p2e.convertphrases(test_phrases)
+
+#save validation dataset embeddings
+p2e.save_embeddings(test_embedded, "./data/embeddings_trumptweets_test.npz")
+
+#load validation dataset embeddings
+embds = p2e.load_embeddings(name="./data/embeddings_trumptweets_test.npz")
+
+#sample some embeddings
+print(embds[0].shape)
+print(embds[67].shape)
+print(embds[500].shape)
+
+#free memory
+del embds, test, test_phrases, test_embedded
+###################################################################################
+
+#get the train set
+train = Trump.train()
+train_phrases = Trump.column(train)
+
+#define train dataset embeddings
+train_embedded = p2e.convertphrases(train_phrases)
+
+#save train dataset embeddings
+p2e.save_embeddings(train_embedded, "./data/embeddings_trumptweets_train.npz")
+
+#load validation dataset embeddings
+embds = p2e.load_embeddings(name="./data/embeddings_trumptweets_train.npz")
+
+#sample some embeddings
+print(embds[0].shape)
+print(embds[67].shape)
+print(embds[500].shape)
+
+#free memory
+del embds, train, train_phrases, train_embedded
+###################################################################################

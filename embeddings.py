@@ -1,3 +1,5 @@
+import gensim
+
 class Processing:
     "This class interfaces with the google word2vec embeddings. It is desirable to only load necessary data, though."
 

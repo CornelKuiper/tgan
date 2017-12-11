@@ -10,17 +10,20 @@ def save_embeddings(tweets_embeddings, name):
     stitched_tweets = []
     stitched_tweets.append([np.zeros(2)] + [np.stack(tweet, axis=-1) for tweet in tweets_embeddings])
 
-    np.savez('./data/' + name, *stitched_tweets)
+    np.savez(name, *stitched_tweets)
 
 def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45, padding=False):
     #reads multiple phrase matrices from file.
     #returns a vector of phrases, that are matrices of 300xnWords
-    #if set maxWords will discard all phrases that have more words than maxWords
+    #if nonzero maxWords will discard all phrases that have more words than maxWords
     #if padding is set to True, all phrases are appended with zero vectors until all phrases contain maxWords.
+    print("Loading embeddings from: ", name, "with a maximum of ", maxWords, " words. \
+    Padding of shorter sentences is set to ", padding, ".")
 
     if not Path(name).exists():
         url = "https://www.dropbox.com/sh/faoxnfui3ndo26k/AABrpK3opNF9d96dJZ3xVcy-a?dl=0"
         print("Given embeddings file was not found. Maybe you can find it at: ", url)
+        print("Make sure the file is located in the given path")
         return
 
     #load data
@@ -28,8 +31,9 @@ def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45,
     content = loaded[loaded.files[0]][1:]                   # get data, strip empty matrix
     
     #throw away outlier length sentences
-    mask = [phrase.shape[1] <= maxWords for phrase in content]
-    content = content[mask]
+    if maxWords:
+        mask = [phrase.shape[1] <= maxWords for phrase in content]
+        content = content[mask]
     
     #when set, pad phrases up to maxWords. (phrase.shape[0] == dimensionality)
     if padding:
@@ -40,11 +44,11 @@ def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45,
             
             content[phrase_idx] = np.concatenate([phrase, np.zeros((dim, maxWords - nWords))], axis=1)
 
-    print("Loading embeddings complete")
+    print("Loading embeddings complete.")
     return content
 
 def convertphrases(listofphrases):
-    #convert a list of phrases to a list of lists of embeddings
+    #convert a list of phrases (a list of strings/sentences) to a list of lists of embeddings
     #the result is preferably saved with save_embeddings and loaded similarly
 
     def random_embedding():
