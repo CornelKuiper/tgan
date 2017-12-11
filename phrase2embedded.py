@@ -12,26 +12,36 @@ def save_embeddings(tweets_embeddings, name):
 
     np.savez('./data/' + name, *stitched_tweets)
 
-def load_embeddings(name="./data/trump_embeddings.npz"):
+def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45, padding=False):
     #reads multiple phrase matrices from file.
     #returns a vector of phrases, that are matrices of 300xnWords
-    dataset = []
+    #if set maxWords will discard all phrases that have more words than maxWords
+    #if padding is set to True, all phrases are appended with zero vectors until all phrases contain maxWords.
 
     if not Path(name).exists():
         url = "https://www.dropbox.com/sh/faoxnfui3ndo26k/AABrpK3opNF9d96dJZ3xVcy-a?dl=0"
         print("Given embeddings file was not found. Maybe you can find it at: ", url)
         return
 
-    loaded = np.load(name)
-    for phrase in loaded.files:
-        content = [loaded[phrase]]
-        if len(loaded[phrase].shape) > 1:
-            #resplit phrase into words
-            content = np.split(loaded[phrase])
-        dataset.append(content)
+    #load data
+    loaded = np.load(name)                                  # close to avoid leaking file descriptor
+    content = loaded[loaded.files[0]][1:]                   # get data, strip empty matrix
+    
+    #throw away outlier length sentences
+    mask = [phrase.shape[1] <= maxWords for phrase in content]
+    content = content[mask]
+    
+    #when set, pad phrases up to maxWords. (phrase.shape[0] == dimensionality)
+    if padding:
+        for phrase_idx in range(content.shape[0]):
+            phrase = content[phrase_idx]
+            dim = phrase.shape[0]
+            nWords = phrase.shape[1]
+            
+            content[phrase_idx] = np.concatenate([phrase, np.zeros((dim, maxWords - nWords))], axis=1)
 
     print("Loading embeddings complete")
-    return dataset[0][0][1:]
+    return content
 
 def convertphrases(listofphrases):
     #convert a list of phrases to a list of lists of embeddings
