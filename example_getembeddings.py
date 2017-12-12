@@ -6,7 +6,7 @@ validation = Trump.val()
 validation_phrases = Trump.column(validation)
 
 #define validation dataset embeddings
-validation_embedded = p2e.convertphrases(validation_phrases)
+validation_embedded = p2e.convertphrases(validation_phrases, maxWords=45, padding=True)
 
 #save validation dataset embeddings
 p2e.save_embeddings(validation_embedded, "./data/embeddings_trumptweets_val.npz")
@@ -28,7 +28,7 @@ test = Trump.test()
 test_phrases = Trump.column(test)
 
 #define test dataset embeddings
-test_embedded = p2e.convertphrases(test_phrases)
+test_embedded = p2e.convertphrases(test_phrases, maxWords=45, padding=True)
 
 #save validation dataset embeddings
 p2e.save_embeddings(test_embedded, "./data/embeddings_trumptweets_test.npz")
@@ -50,7 +50,7 @@ train = Trump.train()
 train_phrases = Trump.column(train)
 
 #define train dataset embeddings
-train_embedded = p2e.convertphrases(train_phrases)
+train_embedded = p2e.convertphrases(train_phrases, maxWords=45, padding=True)
 
 #save train dataset embeddings
 p2e.save_embeddings(train_embedded, "./data/embeddings_trumptweets_train.npz")
