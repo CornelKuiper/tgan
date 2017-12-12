@@ -16,8 +16,7 @@ class Model(object):
 		self.end = 1000
 		self.checkpoint = 200
 		self.testpoint = 50
-		self.time_steps = 20
-		# self.mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
+		self.time_steps = 45
 
 		self.__build()
 
@@ -25,22 +24,18 @@ class Model(object):
 		x = tf.expand_dims(x, 3)
 		
 		with tf.variable_scope('conv1-3'):
-			L1_3 = tf.nn.relu(conv2d(x, co=300, k=[3,300], s=[1,1,1,1], padding='VALID', bn=False))
-			L1_3_time = L1_3.get_shape()[1]
-			L1_3 = tf.nn.max_pool(L1_3, [1,-1,1,1], [1,1,1,1], 'VALID')
-			print(L1_3)
+			L1_3 = tf.nn.relu(conv2d(x, co=300, k=[3,200], s=[1,1,1,1], padding='VALID', bn=False))
+			L1_3 = tf.reduce_max(L1_3, 1)
 
 		with tf.variable_scope('conv1-4'):
-			L1_4 = tf.nn.relu(conv2d(x, co=300, k=[4,300], s=[1,1,1,1], padding='VALID', bn=False))
-			L1_4_time = L1_4.get_shape()[1]
-			L1_4 = tf.nn.max_pool(L1_4, [1,L1_4_time,1,1], [1,1,1,1], 'VALID')
+			L1_4 = tf.nn.relu(conv2d(x, co=300, k=[4,200], s=[1,1,1,1], padding='VALID', bn=False))
+			L1_4 = tf.reduce_max(L1_4, 1)
 
 		with tf.variable_scope('conv1-5'):
-			L1_5 = tf.nn.relu(conv2d(x, co=300, k=[5,300], s=[1,1,1,1], padding='VALID', bn=False))
-			L1_5_time = L1_5.get_shape()[1]
-			L1_5 = tf.nn.max_pool(L1_5, [1,L1_5_time,1,1], [1,1,1,1], 'VALID')
+			L1_5 = tf.nn.relu(conv2d(x, co=300, k=[5,200], s=[1,1,1,1], padding='VALID', bn=False))
+			L1_5 = tf.reduce_max(L1_5, 1)
 
-		L1 = tf.concat([L1_3, L1_4, L1_5],3)
+		L1 = tf.concat([L1_3, L1_4, L1_5],1)
 		L1 = tf.reshape(L1, [-1, 900])
 
 
@@ -51,22 +46,50 @@ class Model(object):
 		return L3, tf.nn.sigmoid(L3)
 
 	def __generator(self, z):
-		L1 = tf.nn.rnn_cell.LSTMCell(300, initializer=tf.truncated_normal_initializer(stddev=0.01))
+		L1 = tf.nn.rnn_cell.LSTMCell(200, initializer=tf.truncated_normal_initializer(stddev=0.01))
 		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1])
 		initial_state = multi_rnn_cell.zero_state(tf.shape(z)[0], tf.float32)
 
 		#rnn_out = [batch_size, max_time, data]
 		rnn_out, state = tf.nn.dynamic_rnn(multi_rnn_cell, z, initial_state=initial_state, time_major=False)
-		print(rnn_out)
 		return rnn_out
+	'''
+	https://github.com/dougalsutherland/opt-mmd/blob/master/gan/mmd.py
+	https://discuss.pytorch.org/t/maximum-mean-discrepancy-mmd-and-radial-basis-function-rbf/1875/2
+	'''
+
+	def mmd(self, x, y, sigma = 1):
+		sigma = 1
+		x = tf.layers.flatten(x)
+		y = tf.layers.flatten(y)
+
+		xx = tf.matmul(x,x,transpose_b=True)
+		yy = tf.matmul(y,y,transpose_b=True)
+		xy = tf.matmul(x,y,transpose_b=True)
+		#[batch_size, batch_size]
+
+		rx = tf.expand_dims(tf.diag_part(xx),0)
+		ry = tf.expand_dims(tf.diag_part(yy),0)
+
+		K = tf.exp(- sigma * (tf.transpose(rx) + rx - 2*xx))
+		L = tf.exp(- sigma * (tf.transpose(ry) + ry - 2*yy))
+		P = tf.exp(- sigma * (tf.transpose(rx) + ry - 2*xy))
+		batch_size = tf.to_float(tf.shape(x)[0])
+		beta = tf.div(1.,(batch_size*(batch_size-1)))
+		gamma = tf.div(2.,(batch_size*batch_size))
+
+		mmdistance = beta * (tf.reduce_sum(K)+tf.reduce_sum(L)) - gamma * tf.reduce_sum(P)
+		return mmdistance
 
 	def __build(self):
-		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, 300])
-		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, 300])
+		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, 200])
+		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, 200])
 		self.z = tf.placeholder(tf.float32, shape=[None, self.time_steps, 100])
 
 		with tf.variable_scope("generator") as G:
 			g_out = self.__generator(self.z)
+
+		self.mmd_loss = self.mmd(g_out, self.y_)
 
 		with tf.variable_scope("discriminator") as D:
 			D_real, D_real_sig = self.__discriminator(self.y_)
@@ -84,7 +107,7 @@ class Model(object):
 		D_var = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,"discriminator")
 
 		with tf.name_scope("optimizer"):
-			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss, var_list = D_var)
+			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.mmd_loss, var_list = D_var)
 			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.G_loss, var_list = G_var)
 		
 		#summaries
@@ -131,15 +154,10 @@ class Model(object):
 			if i%self.checkpoint==0:
 				self.__checkpoint(i)
 
-			if i == 0:
-				self.writer.add_summary(self.session.run(self.x_images, feed_dict={self.x: batch_x}),0)
 			D_cost_total = 0
 			G_cost_total = 0
 			for ix in trange(0, batches):
-				batch_x = batch_x.reshape([-1,4,300])
-				batch_y = np.repeat(batch_y, 4, axis=0).reshape([-1,4,10])
-				batch_z_length = np.randint(5, 45)
-				batch_z = np.random.uniform(-1., 1., size=[batch_y.shape[0], batch_z_length, 100])
+				batch_z = np.random.uniform(-1., 1., size=[batch_y.shape[0], self.time_steps, 100])
 				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.G_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.y_: batch_y, self.z: batch_z})
 					
 				self.writer.add_summary(Dist_summary, i)
@@ -153,10 +171,7 @@ class Model(object):
 			self.writer.add_summary(G_cost_total, i)
 
 			if i%self.testpoint==0:
-				z_set = np.random.uniform(-1., 1., size=[10, 4, 100])
-				y_test = np.zeros((10, 10))
-				np.fill_diagonal(y_test, 1)
-				y_test = np.repeat(y_test, 4, axis=0).reshape([-1,4,10])
+				z_set = np.random.uniform(-1., 1., size=[10, 45, 100])
 				summary = self.session.run(self.G_images, feed_dict={self.y_: y_test, self.z: z_set})
 				self.writer.add_summary(summary, i)
 
