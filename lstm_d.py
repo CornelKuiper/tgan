@@ -58,6 +58,10 @@ class Model(object):
 		with tf.name_scope("loss"):
 			self.D_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real, labels=self.y_))
 
+		with tf.name_scope("accuracy"):
+			self.D_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.greater(D_real_sig, 0.5), tf.float32), self.y_), tf.float32))
+			self.D_accuracy_total = tf.reduce_sum(tf.cast(tf.equal(tf.cast(tf.greater(D_real_sig, 0.5), tf.float32), self.y_), tf.float32))
+
 		with tf.name_scope("optimizer"):
 			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss)
 
@@ -101,14 +105,18 @@ class Model(object):
 				self.__checkpoint(i)
 
 			D_cost_total = 0
+			D_acc_total = 0
 			for ix in trange(0, data_size, self.batch_size):
 				batch_x = embedding[ix:ix+batch_size]
 				batch_y = labels[ix:ix+batch_size]
-				_, D_cost= self.session.run([self.D_solver, self.D_loss], feed_dict={self.x: batch_x, self.y_: batch_y})
-					
+				_, D_cost, D_acc= self.session.run([self.D_solver, self.D_loss, self.D_accuracy_total], feed_dict={self.x: batch_x, self.y_: batch_y})
+				D_acc_total+=D_acc
 				D_cost_total+=D_cost
-
-			D_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Discriminator", simple_value=D_cost_total)])
+				
+			D_acc_total/=data_size
+			D_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Discriminator/loss", simple_value=D_cost_total)])
+			self.writer.add_summary(D_cost_total, i)
+			D_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Discriminator/accuracy", simple_value=D_acc_total)])
 			self.writer.add_summary(D_cost_total, i)
 
 

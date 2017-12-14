@@ -76,6 +76,21 @@ def convertphrases(listofphrases, useGlove = False):
         idx = randint(0, nwords)
         return Processing.get(Processing.embeddings().index2word[idx])
 
+
+    def parse_advanced(word):
+        if "https" in word or "www" in word:
+            return "<URL>"
+        if "/" in word:
+            return word.split("/")
+        if word[0] == "@":
+            return "<USER>"
+        if "<3" in word:
+            return "<HEART>"
+        if any(i.isdigit() for i in word):
+            return "<NUMBER>"
+        if word[0] = "#":
+            if word[1:].isupper()
+
     def parse(word):
         #this should be consistent with special symbols used in embeddings such as <number>, <hashtag>
         #currently; words in ignore return False
