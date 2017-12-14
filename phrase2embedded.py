@@ -22,7 +22,7 @@ def save_embeddings(tweets_embeddings, name, vocab = []):
 def load_padded_tweet_embeddings():
     return np.load("./data/tweet_embeddings.npy")
 
-def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45, padding=False):
+def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=40, padding=False):
     #reads multiple phrase matrices from file.
     #returns a vector of phrases, that are matrices of 300xnWords
     #if nonzero maxWords will discard all phrases that have more words than maxWords
@@ -56,6 +56,14 @@ def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45,
 
     print("Loading embeddings complete.")
     return content
+
+def asMatrix(loadembeddingsoutput):
+    #Converts an array of matrices to a big matrix, assuming matrix shapes to be consistent
+    #The array dimensions will be the zeroth axis of the output.
+    #The order of matrix axes is preserved, and come after the zeroth axis.
+    matrix = np.stack(loadembeddingsoutput, axis=-1)                                #concat array matrices
+    matrix = np.swapaxes(matrix, 0, 2)                                              #set array dimensions as 0-axis
+    return np.swapaxes(matrix, 1, 2)                                                #preserve secondary axes
 
 def asTokens(listofphrases):
     #Given a list of phrases (strings) return a list of phrases (list of words)
@@ -98,17 +106,17 @@ def convertphrases(listofphrases, useGlove = False):
         ignorelist = ['"', ',', '.', '!', '?', ':', 'of', 'and', 'a', '/', 'to', '(', ')', '...']
 
         if word[0] == '#' or word[0] == '@':
-            return word[1:]
+            return [word[1:]]
         if word not in ignorelist:
-            return word
+            return [word]
         if "http" in word:
-            return word
+            return [word]
 
-        return False
+        return [False]
 
     def setEmbedding(word):
         word_embedding = None
-        hitsmiss = (0,0)
+        hitsmiss = [0,0]
         try:
             word_embedding = Processing.get(word)
             hitsmiss[0] += 1
@@ -119,15 +127,19 @@ def convertphrases(listofphrases, useGlove = False):
         return (word_embedding, hitsmiss)
 
     embedded_phrases = []
-    nHits = nMiss = 0
+    hitsnmisses = {'hits':0, 'miss': 0}
     for phrase in listofphrases:
         phrase_embedding = []
-        for word in phrase:
-            word = parse(word)                      #parse word
-            if not word: continue                   #ignore useless
+        for token in phrase:
+            words = parse(token)                      #parse word
 
-            word_embedding = setEmbedding(word)
-            phrase_embedding.append(word_embedding)
+            for word in words:
+                if not word: continue                   #ignore useless
+
+                (word_embedding, hitsmiss) = setEmbedding(word)
+                phrase_embedding.append(word_embedding)
+                hitsnmisses['hits'] = hitsmiss[0]
+                hitsnmisses['miss'] = hitsmiss[1]
         embedded_phrases.append(phrase_embedding)
     print("Done finding the embeddings of all phrases & their words")
     print("During the search, I found ", nHits, " and was unable to embed ", nMiss, " words.")
