@@ -101,18 +101,18 @@ def convertphrases(listofphrases, useGlove = False):
 
     def setEmbedding(word):
         word_embedding = None
-        hitsmiss = (0,0)
+        hitsmiss = [0,0]
         try:
             word_embedding = Processing.get(word)
-            hitsmiss[0] = hitsmiss[0] + 1
+            hitsmiss[0] += 1
         except:
             #if no word is found, insert a random embedding.
             word_embedding = random_embedding()
-            hitsmiss[1] = hitsmiss[1] + 1
+            hitsmiss[1] += 1
         return (word_embedding, hitsmiss)
 
     embedded_phrases = []
-    nHits = nMiss = 0
+    hitsnmisses = {'hits':0, 'miss': 0}
     for phrase in listofphrases:
         phrase_embedding = []
         for token in phrase:
@@ -121,8 +121,10 @@ def convertphrases(listofphrases, useGlove = False):
             for word in words:
                 if not word: continue                   #ignore useless
 
-                word_embedding = setEmbedding(word)
+                (word_embedding, hitsmiss) = setEmbedding(word)
                 phrase_embedding.append(word_embedding)
+                hitsnmisses['hits'] = hitsmiss[0]
+                hitsnmisses['miss'] = hitsmiss[1]
         embedded_phrases.append(phrase_embedding)
     print("Done finding the embeddings of all phrases & their words")
     print("During the search, I found ", nHits, " and was unable to embed ", nMiss, " words.")
