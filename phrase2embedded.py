@@ -22,7 +22,7 @@ def save_embeddings(tweets_embeddings, name, vocab = []):
 def load_padded_tweet_embeddings():
     return np.load("./data/tweet_embeddings.npy")
 
-def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45, padding=False):
+def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=40, padding=False):
     #reads multiple phrase matrices from file.
     #returns a vector of phrases, that are matrices of 300xnWords
     #if nonzero maxWords will discard all phrases that have more words than maxWords
@@ -104,11 +104,11 @@ def convertphrases(listofphrases, useGlove = False):
         hitsmiss = (0,0)
         try:
             word_embedding = Processing.get(word)
-            hitsmiss[0] += 1
+            hitsmiss[0] = hitsmiss[0] + 1
         except:
             #if no word is found, insert a random embedding.
             word_embedding = random_embedding()
-            hitsmiss[1] += 1
+            hitsmiss[1] = hitsmiss[1] + 1
         return (word_embedding, hitsmiss)
 
     embedded_phrases = []
