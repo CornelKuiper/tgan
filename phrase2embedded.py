@@ -57,6 +57,14 @@ def load_embeddings(name="./data/embeddings_trumptweets_train.npz", maxWords=45,
     print("Loading embeddings complete.")
     return content
 
+def asMatrix(loadembeddingsoutput):
+    #Converts an array of matrices to a big matrix, assuming matrix shapes to be consistent
+    #The array dimensions will be the zeroth axis of the output.
+    #The order of matrix axes is preserved, and come after the zeroth axis.
+    matrix = np.stack(loadembeddingsoutput, axis=-1)                                #concat array matrices
+    matrix = np.swapaxes(matrix, 0, 2)                                              #set array dimensions as 0-axis
+    return np.swapaxes(matrix, 1, 2)                                                #preserve secondary axes
+
 def asTokens(listofphrases):
     #Given a list of phrases (strings) return a list of phrases (list of words)
     return [nltk.word_tokenize(phrase) for phrase in listofphrases]
