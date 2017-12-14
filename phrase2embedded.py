@@ -118,7 +118,7 @@ def convertphrases(listofphrases, useGlove = False):
         for token in phrase:
             words = parse(token)                      #parse word
 
-            for word in words
+            for word in words:
                 if not word: continue                   #ignore useless
 
                 word_embedding = setEmbedding(word)
