@@ -127,6 +127,6 @@ def convertphrases(listofphrases, useGlove = False):
                 hitsnmisses['miss'] = hitsmiss[1]
         embedded_phrases.append(phrase_embedding)
     print("Done finding the embeddings of all phrases & their words")
-    print("During the search, I found ", nHits, " and was unable to embed ", nMiss, " words.")
+    print("During the search, I found ", hitsnmisses['hits'], " and was unable to embed ", hitsnmisses['miss'], " words.")
     print("Random words have been inserted where no such embedding exists.")
     return embedded_phrases
