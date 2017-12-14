@@ -58,7 +58,6 @@ class Model(object):
 		with tf.name_scope("loss"):
 			self.D_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real, labels=self.y_))
 
-
 		with tf.name_scope("optimizer"):
 			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss)
 
@@ -94,13 +93,17 @@ class Model(object):
 		self.saver.save(self.session, '{}/model.ckpt'.format(chkpt_name))
 
 	def train(self):
-
+		embedding = np.load()
+		labels = np.load()
+		data_size = labels.shape[0]
 		for i in trange(self.start, self.end):
-			# if i%self.checkpoint==0:
-			# 	self.__checkpoint(i)
+			if i%self.checkpoint==0:
+				self.__checkpoint(i)
 
 			D_cost_total = 0
-			for ix in trange(0, batches):
+			for ix in trange(0, data_size, self.batch_size):
+				batch_x = embedding[ix:ix+batch_size]
+				batch_y = labels[ix:ix+batch_size]
 				_, D_cost= self.session.run([self.D_solver, self.D_loss], feed_dict={self.x: batch_x, self.y_: batch_y})
 					
 				D_cost_total+=D_cost
@@ -111,7 +114,7 @@ class Model(object):
 
 if __name__ == '__main__' :
 	model = Model()
-	# model.init()
+	model.init()
 	# model.train()
 
 
