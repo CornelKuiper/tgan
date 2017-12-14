@@ -91,13 +91,13 @@ def convertphrases(listofphrases, useGlove = False):
         ignorelist = ['"', ',', '.', '!', '?', ':', 'of', 'and', 'a', '/', 'to', '(', ')', '...']
 
         if word[0] == '#' or word[0] == '@':
-            return word[1:]
+            return [word[1:]]
         if word not in ignorelist:
-            return word
+            return [word]
         if "http" in word:
-            return word
+            return [word]
 
-        return False
+        return [False]
 
     def setEmbedding(word):
         word_embedding = None
@@ -115,12 +115,14 @@ def convertphrases(listofphrases, useGlove = False):
     nHits = nMiss = 0
     for phrase in listofphrases:
         phrase_embedding = []
-        for word in phrase:
-            word = parse(word)                      #parse word
-            if not word: continue                   #ignore useless
+        for token in phrase:
+            words = parse(token)                      #parse word
 
-            word_embedding = setEmbedding(word)
-            phrase_embedding.append(word_embedding)
+            for word in words
+                if not word: continue                   #ignore useless
+
+                word_embedding = setEmbedding(word)
+                phrase_embedding.append(word_embedding)
         embedded_phrases.append(phrase_embedding)
     print("Done finding the embeddings of all phrases & their words")
     print("During the search, I found ", nHits, " and was unable to embed ", nMiss, " words.")
