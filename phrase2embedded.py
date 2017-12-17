@@ -105,6 +105,7 @@ def convertphrases(listofphrases, useGlove = False):
             return [word[0], "<REPEAT>"]
         if  word.isupper():
             return  [word.lower(), "<ALLCAPS>"]
+        return word
         #original had check for elongated words e.g. "wayyyy" --> "way <ELONG>", but this requires a dict
         #original also included emotes check
 
