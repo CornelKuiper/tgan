@@ -94,7 +94,7 @@ def convertphrases(listofphrases, useGlove = False):
             return "<USER>"
         if "<3" in word:
             return "<HEART>"
-        if any(i.isdigit() for i in word):
+        if all(i.isdigit() for i in word) or all(i[1:].isdigit() for i in word):
             return "<NUMBER>"
         if word[0] = "#":
             if word[1:].isupper():
