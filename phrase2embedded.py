@@ -87,15 +87,15 @@ def convertphrases(listofphrases, useGlove = False):
 
     def parse_advanced(word):
         if "https" in word or "www" in word:
-            return "<URL>"
+            return ["<URL>"]
         if "/" in word:
             return word.split("/")
         if word[0] == "@":
-            return "<USER>"
+            return ["<USER>"]
         if "<3" in word:
-            return "<HEART>"
+            return ["<HEART>"]
         if all(i.isdigit() for i in word) or all(i[1:].isdigit() for i in word):
-            return "<NUMBER>"
+            return ["<NUMBER>"]
         if word[0] = "#":
             if word[1:].isupper():
                 return ["<HASHTAG>", word[1:].lower() "<ALLCAPS>"]
@@ -105,8 +105,14 @@ def convertphrases(listofphrases, useGlove = False):
             return [word[0], "<REPEAT>"]
         if  word.isupper():
             return  [word.lower(), "<ALLCAPS>"]
+        for i in range(len(word),0,-1):
+            #if it crashes, you might need to download copuses --> nltk.download()
+            if word[:i] in nltk.corpus.words.words():
+                if i == len(word):
+                    return [word]
+                else:
+                    return [word, "<ELONG>"]
         return word
-        #original had check for elongated words e.g. "wayyyy" --> "way <ELONG>", but this requires a dict
         #original also included emotes check
 
         

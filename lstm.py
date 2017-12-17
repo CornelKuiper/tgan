@@ -113,7 +113,7 @@ class Model(object):
 		#summaries
 		Distribution_True = tf.summary.histogram("distribution/true", D_real_sig)
 		Distribution_False = tf.summary.histogram("distribution/false", D_false_sig)
-		Distribution_Total = tf.summary.histogram("distribution/false", tf.concat([D_real, D_false], 0))
+		Distribution_Total = tf.summary.histogram("distribution/both", tf.concat([D_real, D_false], 0))
 		self.Distribution_summary = tf.summary.merge([Distribution_True, Distribution_False, Distribution_Total])
 
 
