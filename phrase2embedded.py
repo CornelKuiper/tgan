@@ -97,7 +97,18 @@ def convertphrases(listofphrases, useGlove = False):
         if any(i.isdigit() for i in word):
             return "<NUMBER>"
         if word[0] = "#":
-            if word[1:].isupper()
+            if word[1:].isupper():
+                return ["<HASHTAG>", word[1:].lower() "<ALLCAPS>"]
+            else:
+                return ["<HASHTAG>"] + re.sub( r"([A-Z])", r" \1", word[1:]).split()
+        if all(s in "!?." for s in word):
+            return [word[0], "<REPEAT>"]
+        if  word.isupper():
+            return  [word.lower(), "<ALLCAPS>"]
+        #original had check for elongated words e.g. "wayyyy" --> "way <ELONG>", but this requires a dict
+        #original also included emotes check
+
+        
 
     def parse(word):
         #this should be consistent with special symbols used in embeddings such as <number>, <hashtag>
