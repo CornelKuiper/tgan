@@ -101,18 +101,18 @@ def convertphrases(listofphrases, useGlove = False):
                 return ["<HASHTAG>", word[1:].lower() "<ALLCAPS>"]
             else:
                 return ["<HASHTAG>"] + re.sub( r"([A-Z])", r" \1", word[1:]).split()
-        if all(s in "!?." for s in word):
-            return [word[0], "<REPEAT>"]
+        if any(s in "!?." for s in word):
+            return re.sub( r"([.?!]){2,}", r" \1", x).split()+["<REPEAT>"]
         if  word.isupper():
             return  [word.lower(), "<ALLCAPS>"]
         for i in range(len(word),0,-1):
-            #if it crashes, you might need to download copuses --> nltk.download()
+            #if it crashes, you might need to download corpuses --> nltk.download()
             if word[:i] in nltk.corpus.words.words():
                 if i == len(word):
                     return [word]
                 else:
                     return [word, "<ELONG>"]
-        return word
+        return [False]
         #original also included emotes check
 
         
