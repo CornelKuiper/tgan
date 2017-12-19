@@ -151,7 +151,7 @@ class Model(object):
 		self.saver.save(self.session, '{}/model.ckpt'.format(chkpt_name))
 
 	def train(self):
-		data_reader = Data_reader(data="data_labelled/training_data2.npy", labels="data_labelled/training_labels3.npy")
+		data_reader = Data_reader(data="D:/ML_datasets/data_labelled/training_data2.npy", labels="D:/ML_datasets/data_labelled/training_labels3.npy")
 		for i in trange(self.start, self.end):
 			if i%self.checkpoint==0:
 				self.__checkpoint(i)
