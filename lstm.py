@@ -82,8 +82,8 @@ class Model(object):
 		return mmdistance
 
 	def __build(self):
-		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, 200])
-		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, 200])
+		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, 300])
+		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, 300])
 		self.z = tf.placeholder(tf.float32, shape=[None, self.time_steps, 100])
 
 		with tf.variable_scope("generator") as G:
@@ -149,7 +149,7 @@ class Model(object):
 		self.saver.save(self.session, '{}/model.ckpt'.format(chkpt_name))
 
 	def train(self):
-
+		data_reader = Data_reader(data="data_labelled/training_data2.npy", labels="data_labelled/training_labels3.npy")
 		for i in trange(self.start, self.end):
 			if i%self.checkpoint==0:
 				self.__checkpoint(i)
@@ -157,6 +157,7 @@ class Model(object):
 			D_cost_total = 0
 			G_cost_total = 0
 			for ix in trange(0, batches):
+				batch_x, batch_y = data_reader.next_batch(self.batch_size)
 				batch_z = np.random.uniform(-1., 1., size=[batch_y.shape[0], self.time_steps, 100])
 				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.mmd_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.y_: batch_y, self.z: batch_z})
 					
@@ -177,8 +178,8 @@ class Model(object):
 
 if __name__ == '__main__' :
 	model = Model()
-	# model.init()
-	# model.train()
+	model.init()
+	model.train()
 
 
 
