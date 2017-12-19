@@ -107,8 +107,8 @@ class Model(object):
 		D_var = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,"discriminator")
 
 		with tf.name_scope("optimizer"):
-			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.mmd_loss, var_list = D_var)
-			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.G_loss, var_list = G_var)
+			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss, var_list = D_var)
+			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.mmd_loss, var_list = G_var)
 		
 		#summaries
 		Distribution_True = tf.summary.histogram("distribution/true", D_real_sig)
@@ -158,7 +158,7 @@ class Model(object):
 			G_cost_total = 0
 			for ix in trange(0, batches):
 				batch_z = np.random.uniform(-1., 1., size=[batch_y.shape[0], self.time_steps, 100])
-				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.G_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.y_: batch_y, self.z: batch_z})
+				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.mmd_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.y_: batch_y, self.z: batch_z})
 					
 				self.writer.add_summary(Dist_summary, i)
 				D_cost_total+=D_cost

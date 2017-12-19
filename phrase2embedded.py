@@ -96,9 +96,9 @@ def convertphrases(listofphrases, useGlove = False):
             return ["<HEART>"]
         if all(i.isdigit() for i in word) or all(i[1:].isdigit() for i in word):
             return ["<NUMBER>"]
-        if word[0] = "#":
+        if word[0] == "#":
             if word[1:].isupper():
-                return ["<HASHTAG>", word[1:].lower() "<ALLCAPS>"]
+                return ["<HASHTAG>", word[1:].lower(), "<ALLCAPS>"]
             else:
                 return ["<HASHTAG>"] + re.sub( r"([A-Z])", r" \1", word[1:]).split()
         if any(s in "!?." for s in word):
@@ -144,11 +144,21 @@ def convertphrases(listofphrases, useGlove = False):
             hitsmiss[1] += 1
         return (word_embedding, hitsmiss)
 
-    embedded_phrases = []
+    embedded_phrases = np.zeros([len(listofphrases), 45, 300])
     hitsnmisses = {'hits':0, 'miss': 0}
     for phrase in listofphrases:
-        phrase_embedding = []
-        for token in phrase:
+        phrase_embedding = np.zeros([45, 300])
+        idx = 0
+        while idx < len(phrase):
+            token = phrase[idx]
+            if token in ".?!":
+                while phrase[idx+1] in ".?!" and idx < len(phrase):
+                    token += phrase[idx+1]
+                    idx += 1
+            if token == "@":
+                token += phrase[idx+1]
+                idx += 1
+
             words = parse(token)                      #parse word
 
             for word in words:
