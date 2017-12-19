@@ -17,6 +17,7 @@ class Model(object):
 		self.checkpoint = 200
 		self.testpoint = 50
 		self.time_steps = 45
+		self.vector_size = 300
 
 		self.__build()
 
@@ -46,7 +47,7 @@ class Model(object):
 		return L3, tf.nn.sigmoid(L3)
 
 	def __generator(self, z):
-		L1 = tf.nn.rnn_cell.LSTMCell(200, initializer=tf.truncated_normal_initializer(stddev=0.01))
+		L1 = tf.nn.rnn_cell.LSTMCell(self.vector_size, initializer=tf.truncated_normal_initializer(stddev=0.01))
 		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1])
 		initial_state = multi_rnn_cell.zero_state(tf.shape(z)[0], tf.float32)
 
@@ -82,19 +83,20 @@ class Model(object):
 		return mmdistance
 
 	def __build(self):
-		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, 300])
-		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, 300])
+		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, self.vector_size])
+		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, self.vector_size])
 		self.z = tf.placeholder(tf.float32, shape=[None, self.time_steps, 100])
 
 		with tf.variable_scope("generator") as G:
-			g_out = self.__generator(self.z)
-
-		self.mmd_loss = self.mmd(g_out, self.y_)
+			self.g_out = self.__generator(self.z)
+		print(self.g_out)
+		print(self.y_)
+		self.mmd_loss = self.mmd(self.g_out, self.y_)
 
 		with tf.variable_scope("discriminator") as D:
 			D_real, D_real_sig = self.__discriminator(self.y_)
 			D.reuse_variables()
-			D_false, D_false_sig = self.__discriminator(g_out)
+			D_false, D_false_sig = self.__discriminator(self.g_out)
 
 		with tf.name_scope("loss"):
 			D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real, labels=(tf.ones_like(D_real)-0.1)))
@@ -171,15 +173,11 @@ class Model(object):
 			G_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Generator", simple_value=G_cost_total)])
 			self.writer.add_summary(G_cost_total, i)
 
-			if i%self.testpoint==0:
-				z_set = np.random.uniform(-1., 1., size=[10, 45, 100])
-				summary = self.session.run(self.G_images, feed_dict={self.y_: y_test, self.z: z_set})
-				self.writer.add_summary(summary, i)
 
 if __name__ == '__main__' :
 	model = Model()
-	model.init()
-	model.train()
+	# model.init()
+	# model.train()
 
 
 
