@@ -1,6 +1,19 @@
 import tensorflow as tf
 
 
+class Data_reader(object):
+	def __init__(self, data, labels):
+		self.data = np.load(data)
+		self.labels = np.load(labels)
+		assert self.labels.shape[0]==self.data.shape[0]
+
+	def next_batch(self, batch_size):
+		batch = [self.data[:batch_size], self.labels[:batch_size]]
+		self.data = np.roll(self.data, batch_size, axis=0)
+		self.labels = np.roll(self.labels, batch_size, axis=0)
+		return batch
+
+
 def weight_variable(shape):
 	weight = tf.get_variable("weight", shape, initializer=tf.truncated_normal_initializer(stddev=0.01))
 	return weight
