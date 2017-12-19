@@ -14,9 +14,9 @@ class Model(object):
 
 		self.start = 0
 		self.end = 1000
-		self.checkpoint = 200
+		self.checkpoint = 3
 		self.testpoint = 50
-		self.time_steps = 45
+		self.time_steps = 40
 		self.vec_size = 300
 		# self.mnist = input_data.read_data_sets("/tmp/data/", one_hot=True)
 
@@ -53,14 +53,14 @@ class Model(object):
 		self.y_ = tf.placeholder(tf.float32, shape=[None, 1])
 
 		with tf.variable_scope("discriminator") as D:
-			D_real, D_real_sig = self.__discriminator(self.x)
+			D_real, self.D_real_sig = self.__discriminator(self.x)
 
 		with tf.name_scope("loss"):
 			self.D_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real, labels=self.y_))
 
 		with tf.name_scope("accuracy"):
-			self.D_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.greater(D_real_sig, 0.5), tf.float32), self.y_), tf.float32))
-			self.D_accuracy_total = tf.reduce_sum(tf.cast(tf.equal(tf.cast(tf.greater(D_real_sig, 0.5), tf.float32), self.y_), tf.float32))
+			self.D_accuracy = tf.reduce_mean(tf.cast(tf.equal(tf.cast(tf.greater(self.D_real_sig, 0.5), tf.float32), self.y_), tf.float32))
+			self.D_accuracy_total = tf.reduce_sum(tf.cast(tf.equal(tf.cast(tf.greater(self.D_real_sig, 0.5), tf.float32), self.y_), tf.float32))
 
 		with tf.name_scope("optimizer"):
 			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss)
@@ -85,9 +85,9 @@ class Model(object):
 		print("MODEL VARIABLES RESTORED")
 
 
-	# def run(self, input_x, input_y):
-	# 	out_recog, out_gender = self.session.run([self.recognition, self.gender], feed_dict={self.x: input_x, self.y: input_y})
-	# 	return out_recog, out_gender
+	def run(self, input_x):
+		out = self.session.run([self.D_real_sig], feed_dict={self.x: input_x})
+		return out
 
 	def __checkpoint(self, iteration):
 		print("SAVING MODEL")
@@ -97,8 +97,8 @@ class Model(object):
 		self.saver.save(self.session, '{}/model.ckpt'.format(chkpt_name))
 
 	def train(self):
-		embedding = np.load()
-		labels = np.load()
+		embedding = np.load("data_labelled/training_data2.npy")
+		labels = np.load("data_labelled/training_labels3.npy")
 		data_size = labels.shape[0]
 		for i in trange(self.start, self.end):
 			if i%self.checkpoint==0:
@@ -107,23 +107,29 @@ class Model(object):
 			D_cost_total = 0
 			D_acc_total = 0
 			for ix in trange(0, data_size, self.batch_size):
-				batch_x = embedding[ix:ix+batch_size]
-				batch_y = labels[ix:ix+batch_size]
-				_, D_cost, D_acc= self.session.run([self.D_solver, self.D_loss, self.D_accuracy_total], feed_dict={self.x: batch_x, self.y_: batch_y})
-				D_acc_total+=D_acc
+				batch_x = embedding[ix:ix+self.batch_size]
+				batch_y = labels[ix:ix+self.batch_size]
+				_, D_cost, D_acc, D_acc_t= self.session.run([self.D_solver, self.D_loss, self.D_accuracy, self.D_accuracy_total], feed_dict={self.x: batch_x, self.y_: batch_y})
+				D_acc_total+=D_acc_t
 				D_cost_total+=D_cost
+				D_cost = tf.Summary(value=[tf.Summary.Value(tag="Discriminator_batch/loss", simple_value=D_cost)])
+				self.writer.add_summary(D_cost, i*1500+ix)
+				D_acc = tf.Summary(value=[tf.Summary.Value(tag="Discriminator_batch/accuracy", simple_value=D_acc)])
+				self.writer.add_summary(D_acc, i*1500+ix)
 				
 			D_acc_total/=data_size
 			D_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Discriminator/loss", simple_value=D_cost_total)])
 			self.writer.add_summary(D_cost_total, i)
-			D_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Discriminator/accuracy", simple_value=D_acc_total)])
-			self.writer.add_summary(D_cost_total, i)
+			D_acc_total = tf.Summary(value=[tf.Summary.Value(tag="Discriminator/accuracy", simple_value=D_acc_total)])
+			self.writer.add_summary(D_acc_total, i)
 
 
 if __name__ == '__main__' :
 	model = Model()
-	model.init()
+	# model.init()
 	# model.train()
-
-
-
+	test = np.load("test_stuff/test_sentence.npy")
+	# # test = np.expand_dims(test,0)
+	# print(test.shape)
+	model.restore("log/7", 12)
+	print(model.run(test)) 
