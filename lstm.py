@@ -84,17 +84,15 @@ class Model(object):
 
 	def __build(self):
 		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, self.vector_size])
-		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, self.vector_size])
 		self.z = tf.placeholder(tf.float32, shape=[None, self.time_steps, 100])
 
 		with tf.variable_scope("generator") as G:
 			self.g_out = self.__generator(self.z)
 		print(self.g_out)
-		print(self.y_)
-		self.mmd_loss = self.mmd(self.g_out, self.y_)
+		self.mmd_loss = self.mmd(self.g_out, self.x)
 
 		with tf.variable_scope("discriminator") as D:
-			D_real, D_real_sig = self.__discriminator(self.y_)
+			D_real, D_real_sig = self.__discriminator(self.x)
 			D.reuse_variables()
 			D_false, D_false_sig = self.__discriminator(self.g_out)
 
@@ -151,7 +149,7 @@ class Model(object):
 		self.saver.save(self.session, '{}/model.ckpt'.format(chkpt_name))
 
 	def train(self):
-		data_reader = Data_reader(data="D:/ML_datasets/data_labelled/training_data2.npy", labels="D:/ML_datasets/data_labelled/training_labels3.npy")
+		data_reader = Data_reader(data="D:/ML_datasets/data_labelled/training_data2.npy")
 		for i in trange(self.start, self.end):
 			if i%self.checkpoint==0:
 				self.__checkpoint(i)
@@ -159,9 +157,9 @@ class Model(object):
 			D_cost_total = 0
 			G_cost_total = 0
 			for ix in trange(0, batches):
-				batch_x, batch_y = data_reader.next_batch(self.batch_size)
+				batch_x = data_reader.next_batch(self.batch_size)
 				batch_z = np.random.uniform(-1., 1., size=[batch_y.shape[0], self.time_steps, 100])
-				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.mmd_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.y_: batch_y, self.z: batch_z})
+				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.mmd_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.z: batch_z})
 					
 				self.writer.add_summary(Dist_summary, i)
 				D_cost_total+=D_cost
