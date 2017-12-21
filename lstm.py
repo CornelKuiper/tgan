@@ -17,6 +17,7 @@ class Model(object):
 		self.checkpoint = 200
 		self.testpoint = 50
 		self.time_steps = 45
+		self.vector_size = 300
 
 		self.__build()
 
@@ -46,7 +47,7 @@ class Model(object):
 		return L3, tf.nn.sigmoid(L3)
 
 	def __generator(self, z):
-		L1 = tf.nn.rnn_cell.LSTMCell(200, initializer=tf.truncated_normal_initializer(stddev=0.01))
+		L1 = tf.nn.rnn_cell.LSTMCell(self.vector_size, initializer=tf.truncated_normal_initializer(stddev=0.01))
 		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1])
 		initial_state = multi_rnn_cell.zero_state(tf.shape(z)[0], tf.float32)
 
@@ -82,19 +83,18 @@ class Model(object):
 		return mmdistance
 
 	def __build(self):
-		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, 200])
-		self.y_ = tf.placeholder(tf.float32, shape=[None, self.time_steps, 200])
+		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, self.vector_size])
 		self.z = tf.placeholder(tf.float32, shape=[None, self.time_steps, 100])
 
 		with tf.variable_scope("generator") as G:
-			g_out = self.__generator(self.z)
-
-		self.mmd_loss = self.mmd(g_out, self.y_)
+			self.g_out = self.__generator(self.z)
+		print(self.g_out)
+		self.mmd_loss = self.mmd(self.g_out, self.x)
 
 		with tf.variable_scope("discriminator") as D:
-			D_real, D_real_sig = self.__discriminator(self.y_)
+			D_real, D_real_sig = self.__discriminator(self.x)
 			D.reuse_variables()
-			D_false, D_false_sig = self.__discriminator(g_out)
+			D_false, D_false_sig = self.__discriminator(self.g_out)
 
 		with tf.name_scope("loss"):
 			D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real, labels=(tf.ones_like(D_real)-0.1)))
@@ -107,13 +107,13 @@ class Model(object):
 		D_var = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,"discriminator")
 
 		with tf.name_scope("optimizer"):
-			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.mmd_loss, var_list = D_var)
-			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.G_loss, var_list = G_var)
+			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss, var_list = D_var)
+			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.mmd_loss, var_list = G_var)
 		
 		#summaries
 		Distribution_True = tf.summary.histogram("distribution/true", D_real_sig)
 		Distribution_False = tf.summary.histogram("distribution/false", D_false_sig)
-		Distribution_Total = tf.summary.histogram("distribution/false", tf.concat([D_real, D_false], 0))
+		Distribution_Total = tf.summary.histogram("distribution/both", tf.concat([D_real, D_false], 0))
 		self.Distribution_summary = tf.summary.merge([Distribution_True, Distribution_False, Distribution_Total])
 
 
@@ -149,7 +149,7 @@ class Model(object):
 		self.saver.save(self.session, '{}/model.ckpt'.format(chkpt_name))
 
 	def train(self):
-
+		data_reader = Data_reader(data="D:/ML_datasets/data_labelled/training_data2.npy")
 		for i in trange(self.start, self.end):
 			if i%self.checkpoint==0:
 				self.__checkpoint(i)
@@ -157,8 +157,9 @@ class Model(object):
 			D_cost_total = 0
 			G_cost_total = 0
 			for ix in trange(0, batches):
+				batch_x = data_reader.next_batch(self.batch_size)
 				batch_z = np.random.uniform(-1., 1., size=[batch_y.shape[0], self.time_steps, 100])
-				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.G_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.y_: batch_y, self.z: batch_z})
+				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.mmd_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.z: batch_z})
 					
 				self.writer.add_summary(Dist_summary, i)
 				D_cost_total+=D_cost
@@ -170,10 +171,6 @@ class Model(object):
 			G_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Generator", simple_value=G_cost_total)])
 			self.writer.add_summary(G_cost_total, i)
 
-			if i%self.testpoint==0:
-				z_set = np.random.uniform(-1., 1., size=[10, 45, 100])
-				summary = self.session.run(self.G_images, feed_dict={self.y_: y_test, self.z: z_set})
-				self.writer.add_summary(summary, i)
 
 if __name__ == '__main__' :
 	model = Model()

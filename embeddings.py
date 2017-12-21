@@ -47,8 +47,8 @@ class Processing:
             Processing._load_embeddings()
         return Processing._w2v_model
 
-    def _load_embeddings():
+    def _load_embeddings(file='./data/GoogleNews-vectors-negative300.bin', binary=True):
         #Loads the word embeddings into memory
         print("please wait while I create a giant embeddingsmatrix..")
-        Processing._w2v_model = gensim.models.KeyedVectors.load_word2vec_format('./data/GoogleNews-vectors-negative300.bin', binary=True)
+        Processing._w2v_model = gensim.models.KeyedVectors.load_word2vec_format(file, binary=binary)
         print("I've loaded the word embeddings :)")

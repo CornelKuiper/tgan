@@ -84,6 +84,39 @@ def convertphrases(listofphrases, useGlove = False):
         idx = randint(0, nwords)
         return Processing.get(Processing.embeddings().index2word[idx])
 
+
+    def parse_advanced(word):
+        if "https" in word or "www" in word:
+            return ["<URL>"]
+        if "/" in word:
+            return word.split("/")
+        if word[0] == "@":
+            return ["<USER>"]
+        if "<3" in word:
+            return ["<HEART>"]
+        if all(i.isdigit() for i in word) or all(i[1:].isdigit() for i in word):
+            return ["<NUMBER>"]
+        if word[0] == "#":
+            if word[1:].isupper():
+                return ["<HASHTAG>", word[1:].lower(), "<ALLCAPS>"]
+            else:
+                return ["<HASHTAG>"] + re.sub( r"([A-Z])", r" \1", word[1:]).split()
+        if any(s in "!?." for s in word):
+            return re.sub( r"([.?!]){2,}", r" \1", x).split()+["<REPEAT>"]
+        if  word.isupper():
+            return  [word.lower(), "<ALLCAPS>"]
+        for i in range(len(word),0,-1):
+            #if it crashes, you might need to download corpuses --> nltk.download()
+            if word[:i] in nltk.corpus.words.words():
+                if i == len(word):
+                    return [word]
+                else:
+                    return [word, "<ELONG>"]
+        return [False]
+        #original also included emotes check
+
+        
+
     def parse(word):
         #this should be consistent with special symbols used in embeddings such as <number>, <hashtag>
         #currently; words in ignore return False
@@ -111,11 +144,21 @@ def convertphrases(listofphrases, useGlove = False):
             hitsmiss[1] += 1
         return (word_embedding, hitsmiss)
 
-    embedded_phrases = []
+    embedded_phrases = np.zeros([len(listofphrases), 45, 300])
     hitsnmisses = {'hits':0, 'miss': 0}
     for phrase in listofphrases:
-        phrase_embedding = []
-        for token in phrase:
+        phrase_embedding = np.zeros([45, 300])
+        idx = 0
+        while idx < len(phrase):
+            token = phrase[idx]
+            if token in ".?!":
+                while phrase[idx+1] in ".?!" and idx < len(phrase):
+                    token += phrase[idx+1]
+                    idx += 1
+            if token == "@":
+                token += phrase[idx+1]
+                idx += 1
+
             words = parse(token)                      #parse word
 
             for word in words:
