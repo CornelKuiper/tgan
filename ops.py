@@ -47,6 +47,19 @@ def conv2d(x, k, co, s=1, bn = True, padding = 'SAME'):
 		L = tf.nn.conv2d(x, W, s, padding) + B
 	return L
 
+def conv2d_dilated(x, k, co, rate=1, bn = True, padding = 'SAME'):
+	if  isinstance(k, list):
+		W = weight_variable([k[0], k[1], shape(x)[-1], co])
+	else:
+		W = weight_variable([k, k, shape(x)[-1], co])
+	B = bias_variable([co])
+	if bn:
+		
+		L = batch_norm(tf.nn.atrous_conv2d(x, W, rate=rate, padding=padding) + B)
+	else:
+		L = tf.nn.atrous_conv2d(x, W, rate=rate, padding=padding) + B
+	return L
+
 def fc(x, co, bn = True):
 	W = weight_variable([shape(x)[-1], co])
 	B = bias_variable([co])

@@ -4,36 +4,39 @@ from tqdm import trange
 import numpy as np
 import tensorflow as tf
 from ops import *
+import gensim
 
 
 # from tensorflow.examples.tutorials.mnist import input_data
 class Model(object):
 	def __init__(self):
-		self.learning_rate = 0.0005
+		self.learning_rate = 0.000005
 		self.batch_size = 20
 
 		self.start = 0
-		self.end = 1000
-		self.checkpoint = 200
-		self.testpoint = 50
+		self.end = 1200
+		self.checkpoint = 300
+		self.testpoint = 150
 		self.time_steps = 45
-		self.vector_size = 300
+		self.vector_size = 200
+
+		self.embedding = gensim.models.KeyedVectors.load_word2vec_format('data/glove_word2vec.txt')
+		self.embedding = self.embedding.wv
 
 		self.__build()
-
 	def __discriminator(self, x):
 		x = tf.expand_dims(x, 3)
 		
 		with tf.variable_scope('conv1-3'):
-			L1_3 = tf.nn.relu(conv2d(x, co=300, k=[3,200], s=[1,1,1,1], padding='VALID', bn=False))
+			L1_3 = tf.nn.relu(conv2d(x, co=300, k=[3,self.vector_size], s=[1,1,1,1], padding='VALID', bn=False))
 			L1_3 = tf.reduce_max(L1_3, 1)
 
 		with tf.variable_scope('conv1-4'):
-			L1_4 = tf.nn.relu(conv2d(x, co=300, k=[4,200], s=[1,1,1,1], padding='VALID', bn=False))
+			L1_4 = tf.nn.relu(conv2d(x, co=300, k=[4,self.vector_size], s=[1,1,1,1], padding='VALID', bn=False))
 			L1_4 = tf.reduce_max(L1_4, 1)
 
 		with tf.variable_scope('conv1-5'):
-			L1_5 = tf.nn.relu(conv2d(x, co=300, k=[5,200], s=[1,1,1,1], padding='VALID', bn=False))
+			L1_5 = tf.nn.relu(conv2d(x, co=300, k=[5,self.vector_size], s=[1,1,1,1], padding='VALID', bn=False))
 			L1_5 = tf.reduce_max(L1_5, 1)
 
 		L1 = tf.concat([L1_3, L1_4, L1_5],1)
@@ -46,14 +49,73 @@ class Model(object):
 			L3 = fc(L2, 1, bn=False)
 		return L3, tf.nn.sigmoid(L3)
 
+
+	# def __discriminator(self, x):
+	# 	with tf.variable_scope('RNN'):
+	# 		L1 = tf.nn.rnn_cell.GRUCell(self.vector_size)
+	# 		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1])
+	# 		initial_state = multi_rnn_cell.zero_state(tf.shape(x)[0], tf.float32)
+
+	# 		rnn_out, state = tf.nn.dynamic_rnn(multi_rnn_cell, x, initial_state=initial_state, time_major=False)
+
+	# 	with tf.variable_scope('fc'):
+	# 		L2 = fc(rnn_out[:,-1], 1, bn=False)
+
+	# 	return L2, tf.nn.sigmoid(L2)
+
+
+	# def __generator(self, z):
+	# 	# L1 = tf.nn.rnn_cell.LSTMCell(self.vector_size)
+	# 	# L1 = tf.contrib.rnn.LayerNormBasicLSTMCell(self.vector_size)
+	# 	L1 = tf.nn.rnn_cell.GRUCell(self.vector_size)
+	# 	multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1])
+	# 	initial_state = multi_rnn_cell.zero_state(tf.shape(z)[0], tf.float32)
+
+	# 	#rnn_out = [batch_size, max_time, data]
+	# 	rnn_out, state = tf.nn.dynamic_rnn(multi_rnn_cell, z, initial_state=initial_state, time_major=False)
+	# 	return rnn_out
+
 	def __generator(self, z):
-		L1 = tf.nn.rnn_cell.LSTMCell(self.vector_size, initializer=tf.truncated_normal_initializer(stddev=0.01))
+		#use RNN or normal NN?
+		L1 = tf.nn.rnn_cell.GRUCell(self.vector_size)
 		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1])
 		initial_state = multi_rnn_cell.zero_state(tf.shape(z)[0], tf.float32)
-
-		#rnn_out = [batch_size, max_time, data]
 		rnn_out, state = tf.nn.dynamic_rnn(multi_rnn_cell, z, initial_state=initial_state, time_major=False)
-		return rnn_out
+
+		rnn_out = tf.expand_dims(rnn_out, 3)
+
+		#rate to get wavenet like structure
+		rate = 1
+		#total dimension reduction due to dilation
+		kernel_size = 2
+		reduction = 1
+
+		print(rnn_out)
+		with tf.variable_scope('wave-1'):
+			rnn_out = tf.pad(rnn_out, [[0,0],[0,rate],[0,0],[0,0]])
+			l1 = lrelu(conv2d_dilated(rnn_out, k=[kernel_size,self.vector_size], co=300, rate=[rate,1], bn = True, padding = 'VALID'))
+			l1 = tf.squeeze(l1, 2)
+			l1 = tf.expand_dims(l1, 3)
+			reduction += rate
+			rate *= kernel_size
+			print(l1)
+			print(reduction)
+		with tf.variable_scope('wave-2'):
+			l1 = tf.pad(l1, [[0,0],[0,rate],[0,0],[0,0]])
+			l2 = lrelu(conv2d_dilated(l1, k=[kernel_size,300], co=300, rate=[rate,1], bn = True, padding = 'VALID'))
+			l2 = tf.squeeze(l2, 2)
+			l2 = tf.expand_dims(l2, 3)
+			reduction += rate
+			rate *= kernel_size
+			print(l2)
+			print(reduction)
+		with tf.variable_scope('wave-3'):
+			l2 = tf.pad(l2, [[0,0],[0,rate],[0,0],[0,0]])
+			l3 = conv2d_dilated(l2, k=[kernel_size,300], co=self.vector_size, rate=[rate,1], bn = True, padding = 'VALID')
+			l3 = tf.squeeze(l3, 2)
+
+		return l3
+
 	'''
 	https://github.com/dougalsutherland/opt-mmd/blob/master/gan/mmd.py
 	https://discuss.pytorch.org/t/maximum-mean-discrepancy-mmd-and-radial-basis-function-rbf/1875/2
@@ -86,9 +148,11 @@ class Model(object):
 		self.x = tf.placeholder(tf.float32, shape=[None, self.time_steps, self.vector_size])
 		self.z = tf.placeholder(tf.float32, shape=[None, self.time_steps, 100])
 
+		self.y_ = tf.placeholder(tf.string)
+
+
 		with tf.variable_scope("generator") as G:
 			self.g_out = self.__generator(self.z)
-		print(self.g_out)
 		self.mmd_loss = self.mmd(self.g_out, self.x)
 
 		with tf.variable_scope("discriminator") as D:
@@ -97,9 +161,9 @@ class Model(object):
 			D_false, D_false_sig = self.__discriminator(self.g_out)
 
 		with tf.name_scope("loss"):
-			D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real, labels=(tf.ones_like(D_real)-0.1)))
-			D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_false, labels=tf.zeros_like(D_false)))
-			self.D_loss = D_loss_real + D_loss_fake
+			D_loss_real = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_real, labels=tf.random_normal(tf.shape(D_real), mean=1, stddev=0.1)))
+			D_loss_fake = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_false, labels=tf.random_normal(tf.shape(D_false), mean=0.1, stddev=0.1)))
+			self.D_loss = (D_loss_real + D_loss_fake)/2
 
 			self.G_loss = tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(logits=D_false, labels=tf.ones_like(D_false)))
 
@@ -108,13 +172,15 @@ class Model(object):
 
 		with tf.name_scope("optimizer"):
 			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.D_loss, var_list = D_var)
-			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(self.mmd_loss, var_list = G_var)
+			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5).minimize(-self.D_loss, var_list = G_var)
 		
 		#summaries
 		Distribution_True = tf.summary.histogram("distribution/true", D_real_sig)
 		Distribution_False = tf.summary.histogram("distribution/false", D_false_sig)
 		Distribution_Total = tf.summary.histogram("distribution/both", tf.concat([D_real, D_false], 0))
 		self.Distribution_summary = tf.summary.merge([Distribution_True, Distribution_False, Distribution_Total])
+
+		self.text_summary = tf.summary.text("sentences", self.y_)
 
 
 		self.session = tf.Session(config=tf.ConfigProto(intra_op_parallelism_threads=6))
@@ -137,9 +203,9 @@ class Model(object):
 		print("MODEL VARIABLES RESTORED")
 
 
-	# def run(self, input_x, input_y):
-	# 	out_recog, out_gender = self.session.run([self.recognition, self.gender], feed_dict={self.x: input_x, self.y: input_y})
-	# 	return out_recog, out_gender
+	def run(self, input_z):
+		out = self.session.run(self.g_out, feed_dict={self.z: input_z})
+		return out
 
 	def __checkpoint(self, iteration):
 		print("SAVING MODEL")
@@ -149,18 +215,24 @@ class Model(object):
 		self.saver.save(self.session, '{}/model.ckpt'.format(chkpt_name))
 
 	def train(self):
-		data_reader = Data_reader(data="D:/ML_datasets/data_labelled/training_data2.npy")
+		data_reader = Data_reader(data="data/trump_embedding.npy")
+		D_cost = 0
+		G_cost = 0
 		for i in trange(self.start, self.end):
 			if i%self.checkpoint==0:
 				self.__checkpoint(i)
-
 			D_cost_total = 0
 			G_cost_total = 0
-			for ix in trange(0, batches):
+			for ix in trange(0, 10):
 				batch_x = data_reader.next_batch(self.batch_size)
-				batch_z = np.random.uniform(-1., 1., size=[batch_y.shape[0], self.time_steps, 100])
-				_, D_cost, _2, G_cost, Dist_summary= self.session.run([self.D_solver, self.D_loss, self.G_solver, self.mmd_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.z: batch_z})
-					
+				batch_z = np.random.normal(0, 1, size=[batch_x.shape[0], self.time_steps, 100])
+
+				if D_cost > G_cost:
+					_, __, D_cost, G_cost, Dist_summary= self.session.run([self.D_solver, self.G_solver, self.D_loss, self.G_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.z: batch_z})
+					print("optimizing D")
+				else:
+					_, D_cost, G_cost, Dist_summary= self.session.run([self.G_solver, self.D_loss, self.G_loss, self.Distribution_summary], feed_dict={self.x: batch_x, self.z: batch_z})
+					print("optimizing G")
 				self.writer.add_summary(Dist_summary, i)
 				D_cost_total+=D_cost
 				G_cost_total+=G_cost
@@ -171,11 +243,33 @@ class Model(object):
 			G_cost_total = tf.Summary(value=[tf.Summary.Value(tag="Generator", simple_value=G_cost_total)])
 			self.writer.add_summary(G_cost_total, i)
 
+			if i%self.testpoint==0:
+
+
+				phrases = []
+				output = self.session.run(self.g_out, feed_dict={self.z: batch_z})
+				for words in output:
+					sentence = []
+					for word in words:
+						sentence.append(self.embedding.most_similar([word], topn=1)[0][0])
+					sentence = ' '.join(sentence)
+					phrases.append(sentence)
+				rand = np.random.randint(0,self.batch_size-2)
+				for words in batch_x[rand:rand+2]:
+					sentence = []
+					for word in words:
+						sentence.append(self.embedding.most_similar_cosmul([word], topn=1)[0][0])
+					sentence = ' '.join(sentence)
+					phrases.append(sentence)
+
+				text_summ = self.session.run(self.text_summary, feed_dict={self.y_: phrases})
+				self.writer.add_summary(text_summ, i)
+
 
 if __name__ == '__main__' :
 	model = Model()
-	# model.init()
-	# model.train()
+	model.init()
+	model.train()
 
 
 

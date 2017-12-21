@@ -4,16 +4,19 @@ import json
 from nltk.tokenize import TweetTokenizer
 import re
 from tqdm import tqdm
-from tweet_parser import Processing
+import gensim
+
+
 class Tweet_parser(object):
 
 	def __init__(self, source='data'):
-		self.embedding_list = np.load("{}/embedding.npy".format(source))
-		self.word_list = np.load("{}/words.npy".format(source))
-		self.vector_size = self.embedding_list.shape[-1]
-		self.max_words = 45
+		# self.word_embedding = gensim.models.KeyedVectors.load_word2vec_format('data/glove_word2vec.txt')
+		# self.vector_size = self.word_embedding.wv.vector_size
+		# print("VECTOR SIZE WORD:\t{}".format(self.vector_size))
+		self.max_words = 35
+		self.min_words = 10
+		self.max_word_vec = self.max_words+5
 		print("MAX WORDS:\t{}".format(self.max_words))
-		print("VECTOR SIZE WORD:\t{}".format(self.vector_size))
 
 	def parse_word(self, word):
 		if "http" in word or "www" in word:
@@ -29,8 +32,9 @@ class Tweet_parser(object):
 				return ["<hashtag>", word[1:].lower(), "<allcaps>"]
 			else:
 				return ["<hashtag>"] + re.sub( r"([A-Z])", r" \1", word[1:]).split()
-		if all(s in "!?." for s in word) and len(word)>1:
-			return re.sub( r"([.?!]){2,}", r" \1", word).split()+["<repeat>"]
+		if len(word)>1:
+			if all(s in "!?." for s in word):
+				return re.sub( r"([.?!]){2,}", r" \1", word).split()+["<repeat>"]
 		if any(i.isnumeric() for i in word) and not all(i.isalpha()for i in word):
 			return ["<number>"]
 		if  word.isupper() and len(word)>1:
@@ -39,7 +43,7 @@ class Tweet_parser(object):
 		#if it crashes, you might need to download corpuses --> nltk.download()
 			if word[i-1]== word[-1]:
 				break
-			if word[:i] in nltk.corpus.words.words():
+			if word[:i] in nltk.corpus.words.words() or word[:i] in self.word_embedding.wv:
 				if i == len(word)-1:
 					return [word]
 				else:
@@ -48,7 +52,7 @@ class Tweet_parser(object):
 
 
 	def sentence2embeddings(self, sentence):
-		sentence_embedding = np.zeros([self.max_words, self.vector_size])
+		sentence_embedding = np.zeros([self.max_word_vec, self.vector_size])
 		embedding_idx = 0
 		word_idx = 0
 
@@ -69,34 +73,26 @@ class Tweet_parser(object):
 			parsed = self.parse_word(word)
 
 			for i, parsed_word in enumerate(parsed):
-				if i+embedding_idx >= self.max_words:
+				if i+embedding_idx >= self.max_word_vec:
 					print("EXCEEDED MAX WORDS")
 					return [None], False
-
-				index = np.where(self.word_list==parsed_word)[0]
-				if len(index) == 0:
-					if not parsed_word.islower():
-						parsed_word = parsed_word.lower()
-						index = np.where(self.word_list==parsed_word)[0]
-						if len(index) == 0:
-							# print("UNKNOWN WORD:\t{}".format(parsed_word))
-							return [None], False
-					else:
-						return [None], False
-				# print(parsed_word, end=' ')
-				sentence_embedding[i+embedding_idx] = self.embedding_list[index]
+				try:
+					sentence_embedding[i+embedding_idx] = self.word_embedding.wv[parsed_word.lower()]
+				except KeyError:
+					# print("UNKNOWN WORD:\t{}".format(parsed_word))
+					return [None], False
 				embedding_idx += 1
 			word_idx += 1
 
 		return sentence_embedding, True
 
 	def phrases2embeddings(self, phrases):
-		phrases_embedding = np.zeros([len(phrases), self.max_words, self.vector_size])
+		phrases_embedding = np.zeros([len(phrases), self.max_word_vec, self.vector_size])
 		fails = 0
 		i = 0
 		for sentence in tqdm(phrases):
 			# print(' '.join(sentence))
-			if len(sentence) <= self.max_words:
+			if len(sentence) <= self.max_words and len(sentence) => self.min_words:
 				sentence_embedding, passed = self.sentence2embeddings(sentence)
 				if passed:
 					phrases_embedding[i] = sentence_embedding
@@ -105,7 +101,7 @@ class Tweet_parser(object):
 					fails += 1
 		print("failed sentences:\t{}/{}".format(fails, len(phrases)))
 
-		return phrases_embedding
+		return phrases_embedding[:i]
 
 	def load_tweets(self, file):
 		with open(file, encoding="utf8") as f:
@@ -117,6 +113,7 @@ class Tweet_parser(object):
 		print("NR OF TWEETS:\t{}".format(len(x)))
 		print("MEAN LENGTH SENTENCE:\t{}".format(np.mean(y)))
 		print("STD LENGTH SENTENCE:\t{}".format(np.std(y)))
+		exit()
 		embeddings = self.phrases2embeddings(x)
 		return embeddings
 
