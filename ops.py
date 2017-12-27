@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 
+
 class Data_reader(object):
 	def __init__(self, data, labels=None):
 		self.data = np.load(data)
@@ -21,6 +22,55 @@ class Data_reader(object):
 			self.data = np.roll(self.data, batch_size, axis=0)
 			return batch
 
+class Data_reader_(object):
+	def __init__(self, data, batch_size, padding=False, lmin=4,lmax=36, min_batch_size=1):
+		self.data = np.load(data)
+		self.batch_size = batch_size
+		self.padding=padding
+		if self.padding:
+			data_size = sum([i.shape for i in data[lmin:lmax+1]])
+			data_ = np.zeros([data_size, lmax, 200])
+			idx = 0
+			for i, data_i in enumerate(self.data[lmin:lmax+1], start=lmin):
+				size = data_i.shape[0]
+				data_[idx:idx+size,:i] = data_i
+				idx += size
+			self.data = data_
+			del data_zero
+		else:
+			data_ = []
+			for i, bucket in enumerate(self.data[lmin:lmax+1], start=lmin):
+				for j in range(0, bucket.shape[0],self.batch_size):
+					bucket_j = bucket[j:j+self.batch_size]
+					if bucket_j.shape[0] >= min_batch_size:
+						data_.append(bucket_j)
+						if bucket_j.shape[0] != self.batch_size:
+							print("final bucket_{} batch of size:\t{}".format(i, bucket_j.shape[0]))
+			self.data = np.asarray(data_)
+			del data_
+
+		self.data = np.random.permutation(self.data)
+		self.data_size = self.data.shape[0]
+
+		self.padding = padding
+		self.count = 0
+
+	def next_batch(self):
+		if self.padding:
+			if self.count >= self.data_size:
+				self.count = 0
+				self.data = np.random.permutation(self.data)
+			batch = self.data[:self.batch_size]
+			self.data = np.roll(self.data, self.batch_size, axis=0)
+			self.count += self.batch_size
+		else:
+			if self.count >= self.data_size:
+				self.count = 0
+				self.data = np.random.permutation(self.data)
+			batch = self.data[self.count]
+			self.count += 1
+
+		return batch
 
 def weight_variable(shape):
 	weight = tf.get_variable("weight", shape, initializer=tf.truncated_normal_initializer(stddev=0.01))
