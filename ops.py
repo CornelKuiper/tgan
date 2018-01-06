@@ -51,6 +51,10 @@ class Data_reader_(object):
 
 		self.data = np.random.permutation(self.data)
 		self.data_size = self.data.shape[0]
+		if padding:
+			print("NR OF BATCHES: {}".format(self.data_size/self.batch_size))
+		else:
+			print("NR OF BATCHES: {}".format(self.data_size))
 
 		self.padding = padding
 		self.count = 0
@@ -103,11 +107,9 @@ def conv2d_dilated(x, k, co, rate=1, bn = True, padding = 'SAME'):
 	else:
 		W = weight_variable([k, k, shape(x)[-1], co])
 	B = bias_variable([co])
+	L = tf.nn.atrous_conv2d(x, W, rate=rate, padding=padding) + B
 	if bn:
-		
-		L = batch_norm(tf.nn.atrous_conv2d(x, W, rate=rate, padding=padding) + B)
-	else:
-		L = tf.nn.atrous_conv2d(x, W, rate=rate, padding=padding) + B
+		L = batch_norm(L)
 	return L
 
 def fc(x, co, bn = True):

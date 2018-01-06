@@ -111,6 +111,7 @@ class Tweet_parser(object):
 			word_idx += 1
 
 		return sentence_embedding, True
+		
 
 	def phrases2embeddings(self, phrases):
 		phrases_embedding = np.zeros([len(phrases), self.max_word_vec, self.vector_size])
