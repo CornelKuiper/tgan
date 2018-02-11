@@ -164,7 +164,7 @@ class Tweet_parser(object):
 		return np.array(sentence_embedding), True
 
 	def phrases2embeddings_dynamic(self, phrases):
-		phrases_embedding = [[] for i in range(80)]
+		phrases_embedding = [[] for i in range(50)]
 		fails = 0
 		for sentence in tqdm(phrases):
 			# print(' '.join(sentence))
@@ -172,7 +172,8 @@ class Tweet_parser(object):
 			sentence_embedding, passed = self.sentence2embeddings_dynamic(sentence)
 			if passed:
 				idx = sentence_embedding.shape[0]
-				phrases_embedding[idx].append(sentence_embedding)
+				if idx < 50:
+					phrases_embedding[idx].append(sentence_embedding)
 			else:
 				fails += 1
 		print("failed sentences:\t{}/{}".format(fails, len(phrases)))
@@ -236,22 +237,27 @@ class Tweet_parser(object):
 		return histogram, failures
 
 	def load_tweets(self, file):
-		with open(file, encoding="utf8") as f:
-			x = json.load(f)
-
+		# with open(file, encoding="utf8") as f:
+		# 	x = json.load(f)
+		x = np.load(file)
 		tweett = TweetTokenizer()
-		x = [tweett.tokenize(phrase['text']) for phrase in x]
-		y = [len(z) for z in x]
+		x_ = []
+		for phrase in x:
+			phrase = tweett.tokenize(phrase)
+			if len(phrase) <= self.max_words:
+				x_.append(phrase)
+				
+		y = [len(z) for z in x_]
 		print("NR OF TWEETS:\t{}".format(len(x)))
 		print("MEAN LENGTH SENTENCE:\t{}".format(np.mean(y)))
 		print("STD LENGTH SENTENCE:\t{}".format(np.std(y)))
-		return x
+		return x_
 
 
 if __name__ == '__main__' :
 	tp = Tweet_parser()
-	x = tp.load_tweets('data/trump_tweets.json')
+	x = tp.load_tweets('data/usa_geo_tokens.npy')
 	y = tp.phrases2embeddings_dynamic(x)
 	# y = tp.phrases2embeddings(x)
 
-	np.save('data/trump_embedding_dynamic.npy', y)
+	np.save('data/geo_embedding_dynamic.npy', y)

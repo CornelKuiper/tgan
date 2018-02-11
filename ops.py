@@ -27,6 +27,7 @@ class Data_reader_(object):
 		self.data = np.load(data)
 		self.batch_size = batch_size
 		self.padding=padding
+		self.min_batch_size = min_batch_size
 		if self.padding:
 			data_size = sum([i.shape for i in data[lmin:lmax+1]])
 			data_ = np.zeros([data_size, lmax, 200])
@@ -42,10 +43,9 @@ class Data_reader_(object):
 			for i, bucket in enumerate(self.data[lmin:lmax+1], start=lmin):
 				for j in range(0, bucket.shape[0],self.batch_size):
 					bucket_j = bucket[j:j+self.batch_size]
-					if bucket_j.shape[0] >= min_batch_size:
-						data_.append(bucket_j)
-						if bucket_j.shape[0] != self.batch_size:
-							print("final bucket_{} batch of size:\t{}".format(i, bucket_j.shape[0]))
+					data_.append(bucket_j)
+					if bucket_j.shape[0] != self.batch_size:
+						print("final bucket_{} batch of size:\t{}".format(i, bucket_j.shape[0]))
 			self.data = np.asarray(data_)
 			del data_
 
@@ -73,6 +73,8 @@ class Data_reader_(object):
 				self.data = np.random.permutation(self.data)
 			batch = self.data[self.count]
 			self.count += 1
+		while batch.shape[1] < self.min_batch_size:
+			batch = self.next_batch()
 
 		return batch
 

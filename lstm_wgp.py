@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 from ops import *
 import gensim
-
+import threading
 
 class Model(object):
 	def __init__(self):
@@ -19,87 +19,21 @@ class Model(object):
 		self.vector_size = 200
 		self.z_size = 100
 
-		# print("LOADING EMBEDDING...", end=" ")
-		# self.embedding = gensim.models.KeyedVectors.load_word2vec_format('data/glove_word2vec.txt')
-		# self.embedding = self.embedding.wv
-		# print("DONE")
+		self.loaded_embedding = False
+
+		def load_embedding():
+			print("LOADING EMBEDDING...")
+			self.embedding = gensim.models.KeyedVectors.load_word2vec_format('data/glove_word2vec.txt')
+			self.embedding = self.embedding.wv
+			print("LOADED EMBEDDING!")
+			self.loaded_embedding = True
+
+		t = threading.Thread(target=load_embedding)
+		t.start()
+
 
 		self.__build()
 
-	def __discriminator(self, x):
-
-		x_shape = tf.shape(x)
-		#adding extra dim which might help generating correct ending of sequence
-		with tf.name_scope("time_step"):
-			step_size = tf.minimum(x_shape[1], 5)
-			steps = tf.range(tf.cast(step_size, dtype=tf.float32)-1, -1, -1, dtype=tf.float32)*0.45
-			steps = tf.tanh(steps)
-			step_ = tf.ones([x_shape[1]-step_size])
-			steps = tf.concat([step_, steps],0)
-			steps = tf.reshape(steps, [1, -1, 1])
-
-			steps = tf.tile(steps, [x_shape[0], 1, 1])
-			x = tf.concat([x, steps], 2)
-
-		L1 = tf.contrib.rnn.BasicLSTMCell(2048)
-		L2 = tf.contrib.rnn.BasicLSTMCell(1024)
-		L3 = tf.contrib.rnn.BasicLSTMCell(512,)
-
-		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1, L2, L3])
-		initial_state = multi_rnn_cell.zero_state(x_shape[0], tf.float32)
-
-		rnn_out, state = tf.nn.dynamic_rnn(multi_rnn_cell, x, initial_state=initial_state, time_major=False)
-
-		with tf.variable_scope('FC'):
-			out = fc(rnn_out[:-1], 1, bn=False)
-
-		return out
-
-	"""
-	def __discriminator(self, x):
-		x_shape = tf.shape(x)
-		x = tf.expand_dims(x, 2)
-
-
-		#adding extra dim which might help generating correct ending of sequence
-		with tf.name_scope("time_step"):
-			step_size = tf.minimum(x_shape[1], 5)
-			steps = tf.range(tf.cast(step_size, dtype=tf.float32)-1, -1, -1, dtype=tf.float32)*0.45
-			steps = tf.tanh(steps)
-			step_ = tf.ones([x_shape[1]-step_size])
-			steps = tf.concat([step_, steps],0)
-			steps = tf.reshape(steps, [1,-1,1,1])
-
-			steps = tf.tile(steps, [x_shape[0],1,1,1])
-			x = tf.concat([x, steps], 3)
-
-
-		kernel_size = 2
-		rates = [kernel_size**i for i in range(2)]
-		padding_needed = sum(rates[:-1])
-
-		with tf.variable_scope('wave-0'):
-			l1 = tf.nn.leaky_relu(conv2d_dilated(x, k=[kernel_size,1], co=2048, rate=[rates[0],1], bn=False, padding='VALID'))
-			l1_min_size = rates[-1]-(kernel_size-1)
-			pad_size = tf.maximum(l1_min_size - tf.shape(l1)[1], 0)
-			pad = tf.zeros([x_shape[0], pad_size, 1, 2048])
-			l1 = tf.concat([l1, pad], 1)
-			# l1 = tf.Print(l1, [tf.shape(l1)], message="l1= ", summarize=6)
-		with tf.variable_scope('wave-1'):
-			l2 = tf.nn.leaky_relu(conv2d_dilated(l1, k=[kernel_size,1], co=1024, rate=[rates[1],1], bn=False, padding='VALID'))
-			# l2 = tf.Print(l2, [tf.shape(l2)], message="l2= ", summarize=6)
-
-			l2 = tf.reduce_mean(l2, 1)
-
-
-
-		l2 = tf.reshape(l2, [-1,1024])
-
-		with tf.variable_scope('FC1'):
-			l3 = tf.nn.leaky_relu(fc(l2, 512, bn=False))
-		with tf.variable_scope('FC2'):
-			l4 = fc(l3, 1, bn=False)
-		return l4
 	def __discriminator(self, x):
 		x = tf.expand_dims(x, 2)
 		
@@ -141,9 +75,10 @@ class Model(object):
 
 		L1 = tf.contrib.rnn.LayerNormBasicLSTMCell(2048)
 		L2 = tf.contrib.rnn.LayerNormBasicLSTMCell(1024)
-		L3 = tf.contrib.rnn.LayerNormBasicLSTMCell(200)
+		L3 = tf.contrib.rnn.LayerNormBasicLSTMCell(512)
+		L4 = tf.contrib.rnn.LayerNormBasicLSTMCell(200)
 
-		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1, L2, L3])
+		multi_rnn_cell = tf.nn.rnn_cell.MultiRNNCell([L1, L2, L3, L4])
 		initial_state = multi_rnn_cell.zero_state(z_shape[0], tf.float32)
 
 		rnn_out, state = tf.nn.dynamic_rnn(multi_rnn_cell, z, initial_state=initial_state, time_major=False)
@@ -180,11 +115,10 @@ class Model(object):
 		with tf.variable_scope('wave-1'):
 			l2 = tf.nn.relu(conv2d_dilated(l1, k=[kernel_size,1], co=1024, rate=[rates[1],1], bn=True, padding='VALID'))
 		with tf.variable_scope('wave-2'):
-			l3 = 2*tf.nn.tanh(conv2d_dilated(l2, k=[kernel_size,1], co=200, rate=[rates[2],1], bn=False, padding='VALID'))
+			l3 = 2*tf.nn.tanh(conv2d_dilated(l2, k=[kernel_size,1], co=self.vector_size, rate=[rates[2],1], bn=False, padding='VALID'))
 			l3 = tf.squeeze(l3, 2)
 
 		return l3
-		"""
 
 	def __build(self):
 		self.x = tf.placeholder(tf.float32, shape=[None, None, self.vector_size])
@@ -204,11 +138,19 @@ class Model(object):
 			D.reuse_variables()
 			D_false = self.__discriminator(self.g_out)
 
+			#gradient penalty for wasserstein gp
+			epsilon = tf.random_uniform([tf.shape(self.x)[0],1,1], 0.0, 1.0)
+			x_hat = self.x + epsilon*(self.g_out-self.x)
+
+			D_false_w = self.__discriminator(x_hat)
+			gradients = tf.gradients(D_false_w, [x_hat])[0]
+			slopes = tf.sqrt(tf.reduce_sum(tf.square(gradients), axis=1))
+			self.gradient_penalty = 10*tf.reduce_mean(tf.square(slopes-1.0))
 
 
 		# cost functions
 		self.G_loss = -tf.reduce_mean(D_false)
-		self.D_loss = tf.reduce_mean(D_false) - tf.reduce_mean(D_real)
+		self.D_loss = tf.reduce_mean(D_false) - tf.reduce_mean(D_real) + self.gradient_penalty
 
 		G_var = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,"generator")
 		D_var = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES,"discriminator")
@@ -216,7 +158,6 @@ class Model(object):
 		with tf.name_scope("optimizer"):
 			self.D_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5, beta2=0.9).minimize(self.D_loss, var_list = D_var)
 			self.G_solver = tf.train.AdamOptimizer(self.learning_rate, beta1=0.5, beta2=0.9).minimize(self.G_loss, var_list = G_var)
-			self.D_clip = [v.assign(tf.clip_by_value(v, -0.01, 0.01)) for v in D_var]
 
 		#summaries
 		Distribution_True = tf.summary.histogram("distribution/true", D_real)
@@ -226,8 +167,9 @@ class Model(object):
 
 		G_loss_summ = tf.summary.scalar("G_loss", self.G_loss)
 		D_loss_summ = tf.summary.scalar("D_loss", self.D_loss)
+		Grad_penalty_summ = tf.summary.scalar("gradient_penalty", self.gradient_penalty)
 
-		self.Cost_summary = tf.summary.merge([G_loss_summ, D_loss_summ])
+		self.Cost_summary = tf.summary.merge([G_loss_summ, D_loss_summ, Grad_penalty_summ])
 
 		self.text_summary = tf.summary.text("sentences", self.y_)
 
@@ -286,9 +228,9 @@ class Model(object):
 			#train discriminator first for n_critic(5) times
 			for ix in trange(0, 5):
 				batch_x = data_reader.next_batch()
-				batch_z = np.random.normal(0, 1, size=[batch_x.shape[0], batch_x.shape[1], self.z_size])
+				batch_z = np.random.uniform(0, 1, size=[batch_x.shape[0], batch_x.shape[1], self.z_size])
 
-				_, __ = self.session.run([self.D_clip, self.D_solver], feed_dict={self.x: batch_x, self.z: batch_z})
+				_ = self.session.run(self.D_solver, feed_dict={self.x: batch_x, self.z: batch_z})
 
 			batch_x = data_reader.next_batch()
 			batch_z = np.random.normal(0, 1, size=[batch_x.shape[0], batch_x.shape[1], self.z_size])
@@ -299,22 +241,22 @@ class Model(object):
 			self.writer.add_summary(Dist_summary, i)
 
 
-			# if i%self.testpoint==0:
-			# 	phrases = []
-			# 	test_z_ = [np.random.normal(0, 1, size=[5, 2**idx, self.z_size]) for idx in range(2,5)]
-			# 	for test_z in test_z_:
-			# 		output = self.session.run(self.g_out, feed_dict={self.z: test_z})
-			# 		for words in output:
-			# 			sentence = []
-			# 			for word in words:
-			# 				top_words = self.embedding.most_similar([word], topn=1)
-			# 				top_word = top_words[0][0]
-			# 				sentence.append(top_word)
-			# 			sentence = ' '.join(sentence)
-			# 			phrases.append(sentence)
+			if i%self.testpoint==0 and self.loaded_embedding:
+				phrases = []
+				test_z_ = [np.random.normal(0, 1, size=[5, 2**idx, self.z_size]) for idx in range(2,5)]
+				for test_z in test_z_:
+					output = self.session.run(self.g_out, feed_dict={self.z: test_z})
+					for words in output:
+						sentence = []
+						for word in words:
+							top_words = self.embedding.most_similar([word], topn=1)
+							top_word = top_words[0][0]
+							sentence.append(top_word)
+						sentence = ' '.join(sentence)
+						phrases.append(sentence)
 
-			# 	text_summ = self.session.run(self.text_summary, feed_dict={self.y_: phrases})
-			# 	self.writer.add_summary(text_summ, i)
+				text_summ = self.session.run(self.text_summary, feed_dict={self.y_: phrases})
+				self.writer.add_summary(text_summ, i)
 
 
 if __name__ == '__main__' :

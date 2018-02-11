@@ -9,18 +9,18 @@ import gensim
 
 class Model(object):
 	def __init__(self):
-		self.learning_rate = 0.00005
+		self.learning_rate = 0.0005
 		self.batch_size = 20
 
-		self.start = 0
+		self.start = 1
 		self.iterations = 10000
 		self.checkpoint = 300
 		self.testpoint = 100
 		self.time_steps = 45
 		self.vector_size = 200
 
-		# self.embedding = gensim.models.KeyedVectors.load_word2vec_format('data/glove_word2vec.txt')
-		# self.embedding = self.embedding.wv
+		self.embedding = gensim.models.KeyedVectors.load_word2vec_format('data/glove_word2vec.txt')
+		self.embedding = self.embedding.wv
 
 		self.__build()
 
@@ -95,7 +95,7 @@ class Model(object):
 
 			with tf.variable_scope('wave-2'):
 				l3 = tf.nn.tanh(conv2d_dilated(l2, k=[kernel_size,1], co=self.vector_size, rate=[rates[2],1], bn=False, padding='VALID'))
-			# l3 = tf.Print(l3, [tf.shape(l3), tf.shape(x)], message="DEBUG: = ", summarize=6)
+				
 			l3_z = tf.concat([l3, steps[:,i-1]],3)
 			z = tf.concat([z[:,1:], l3_z], 1)
 
@@ -173,8 +173,8 @@ class Model(object):
 		D_cost = 0
 		G_cost = 0
 		for i in trange(self.start, self.start+self.iterations):
-		# 	if i%self.checkpoint==0:
-		# 		self.__checkpoint(i)
+			if i%self.checkpoint==0:
+				self.__checkpoint(i)
 
 			batch_x = data_reader.next_batch()
 			batch_z = np.random.normal(0, 1, size=[batch_x.shape[0], batch_x.shape[1]-1, 100])
@@ -186,26 +186,26 @@ class Model(object):
 
 			self.writer.add_summary(summary, i)
 
-			# if i%self.testpoint==0:
-			# 	phrases = []
-			# 	output = self.session.run(self.g_out, feed_dict={self.x: batch_x[0:3], self.z: batch_z[0:3]})
-			# 	for j, words in enumerate(output):
-			# 		sentence = []
-			# 		sentence.append(self.embedding.most_similar([batch_x[j, 0]], topn=1)[0][0])
-			# 		for word in words:
-			# 			sentence.append(self.embedding.most_similar([word], topn=1)[0][0])
-			# 		sentence = ' '.join(sentence)
-			# 		phrases.append(sentence)
-			# 	output = self.session.run(self.g_out, feed_dict={self.x: batch_x[0:3], self.z: batch_z[0:3]})
-			# 	for words in batch_x[:3]:
-			# 		sentence = []
-			# 		for word in words:
-			# 			sentence.append(self.embedding.most_similar_cosmul([word], topn=1)[0][0])
-			# 		sentence = ' '.join(sentence)
-			# 		phrases.append(sentence)
+			if i%self.testpoint==0:
+				phrases = []
+				output = self.session.run(self.g_out, feed_dict={self.x: batch_x[0:3], self.z: batch_z[0:3]})
+				for j, words in enumerate(output):
+					sentence = []
+					sentence.append(self.embedding.most_similar([batch_x[j, 0]], topn=1)[0][0])
+					for word in words:
+						sentence.append(self.embedding.most_similar([word], topn=1)[0][0])
+					sentence = ' '.join(sentence)
+					phrases.append(sentence)
+				output = self.session.run(self.g_out, feed_dict={self.x: batch_x[0:3], self.z: batch_z[0:3]})
+				for words in batch_x[:3]:
+					sentence = []
+					for word in words:
+						sentence.append(self.embedding.most_similar_cosmul([word], topn=1)[0][0])
+					sentence = ' '.join(sentence)
+					phrases.append(sentence)
 
-			# 	text_summ = self.session.run(self.text_summary, feed_dict={self.y_: phrases})
-			# 	self.writer.add_summary(text_summ, i)
+				text_summ = self.session.run(self.text_summary, feed_dict={self.y_: phrases})
+				self.writer.add_summary(text_summ, i)
 
 
 if __name__ == '__main__' :
