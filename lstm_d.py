@@ -29,15 +29,15 @@ class Model(object):
 		
 		with tf.variable_scope('conv1-3'):
 			L1_3 = tf.nn.relu(conv2d(x, co=300, k=[3,self.vec_size], s=[1,1,1,1], padding='VALID', bn=False))
-			L1_3 = tf.reduce_max(L1_3, 1)
+			L1_3 = tf.reduce_mean(L1_3, 1)
 
 		with tf.variable_scope('conv1-4'):
 			L1_4 = tf.nn.relu(conv2d(x, co=300, k=[4,self.vec_size], s=[1,1,1,1], padding='VALID', bn=False))
-			L1_4 = tf.reduce_max(L1_4, 1)
+			L1_4 = tf.reduce_mean(L1_4, 1)
 
 		with tf.variable_scope('conv1-5'):
 			L1_5 = tf.nn.relu(conv2d(x, co=300, k=[5,self.vec_size], s=[1,1,1,1], padding='VALID', bn=False))
-			L1_5 = tf.reduce_max(L1_5, 1)
+			L1_5 = tf.reduce_mean(L1_5, 1)
 
 		L1 = tf.concat([L1_3, L1_4, L1_5],1)
 		L1 = tf.reshape(L1, [-1, 900])
